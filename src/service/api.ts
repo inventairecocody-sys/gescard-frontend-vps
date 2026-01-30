@@ -66,7 +66,7 @@ const getAxiosConfig = () => {
 // ✅ Création de l'instance axios
 const api = axios.create(getAxiosConfig());
 
-// ✅ FONCTION POUR JOURNALISER LES ACTIONS
+// ✅ FONCTION POUR JOURNALISER LES ACTIONS (CORRIGÉE SANS X-Log-Only)
 const logActionToJournal = async (actionData: {
   actionType: string;
   details: string;
@@ -106,11 +106,11 @@ const logActionToJournal = async (actionData: {
       ...actionData.additionalData
     };
     
-    // Envoyer au backend pour journalisation
+    // Envoyer au backend pour journalisation - SANS X-Log-Only qui cause CORS
     await api.post('/api/journal/log', logData, {
       headers: {
-        'X-Log-Only': 'true', // Header pour éviter la journalisation en boucle
         'Authorization': `Bearer ${token}`
+        // 'X-Log-Only': 'true', // ❌ SUPPRIMÉ - CAUSE L'ERREUR CORS
       },
       timeout: 5000 // Court timeout pour ne pas bloquer
     });
@@ -839,4 +839,3 @@ export const fileHelper = {
 
 // ✅ Export par défaut
 export default api;
-// NE PAS EXPORTER journalApi ICI - Il est déjà exporté plus haut
