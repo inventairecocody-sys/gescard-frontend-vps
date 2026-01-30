@@ -42,24 +42,30 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
 }) => {
   const [editingCell, setEditingCell] = useState<{rowIndex: number, column: string} | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [localCartes, setLocalCartes] = useState<Carte[]>(cartes);
+
+  // ✅ Mettre à jour les cartes locales quand les props changent
+  useEffect(() => {
+    setLocalCartes(cartes);
+  }, [cartes]);
 
   // ✅ LOG DE DIAGNOSTIC
   useEffect(() => {
-    if (cartes.length > 0) {
+    if (localCartes.length > 0) {
       console.log("🔍 DIAGNOSTIC TableCartesExcel:");
-      const firstCarte = cartes[0] as unknown as CarteComplete;
+      const firstCarte = localCartes[0] as unknown as CarteComplete;
       console.log("Structure de la première carte:", {
         id: firstCarte.ID || firstCarte.id,
         NOM: firstCarte.NOM,
         nom: firstCarte.nom,
         PRENOMS: firstCarte.PRENOMS,
         prenoms: firstCarte.prenoms,
-        CONTACT: firstCarte.CONTACT,
-        contact: firstCarte.contact,
+        DELIVRANCE: firstCarte.DELIVRANCE,
+        delivrance: firstCarte.delivrance,
         toutesLesCles: Object.keys(firstCarte)
       });
     }
-  }, [cartes]);
+  }, [localCartes]);
 
   // ✅ CONFIGURATION DES PERMISSIONS PAR RÔLE
   const getPermissionsByRole = () => {
@@ -169,7 +175,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
   const handleCellClick = (rowIndex: number, column: string) => {
     const col = colonnes.find(col => col.key === column);
     if (col?.editable === true && col.type !== "checkbox" && canEdit) {
-      const currentValue = getCellValue(cartes[rowIndex] as unknown as CarteComplete, column);
+      const currentValue = getCellValue(localCartes[rowIndex] as unknown as CarteComplete, column);
       setEditValue(currentValue.toString());
       setEditingCell({ rowIndex, column });
     }
@@ -181,15 +187,41 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     carte[keyMin] = value;
   };
 
+  // ✅ FORMATE LES CARTES POUR L'ENVOI AU BACKEND
+  const formatCartePourBackend = (carte: CarteComplete): any => {
+    console.log('🔄 Formatage pour backend:', carte);
+    
+    const carteFormatee: any = {
+      // ID est obligatoire pour le backend
+      ID: carte.ID || carte.id,
+      // Format standard attendu par le backend MSSQL
+      NOM: carte.NOM || carte.nom || '',
+      PRENOMS: carte.PRENOMS || carte.prenoms || '',
+      CONTACT: carte.CONTACT || carte.contact || '',
+      "LIEU D'ENROLEMENT": carte["LIEU D'ENROLEMENT"] || '',
+      "SITE DE RETRAIT": carte["SITE DE RETRAIT"] || '',
+      RANGEMENT: carte.RANGEMENT || carte.rangement || '',
+      "DATE DE NAISSANCE": carte["DATE DE NAISSANCE"] || '',
+      "LIEU NAISSANCE": carte["LIEU NAISSANCE"] || '',
+      DELIVRANCE: carte.DELIVRANCE || carte.delivrance || '',
+      "CONTACT DE RETRAIT": carte["CONTACT DE RETRAIT"] || '',
+      "DATE DE DELIVRANCE": carte["DATE DE DELIVRANCE"] || ''
+    };
+
+    console.log('📤 Carte formatée:', carteFormatee);
+    return carteFormatee;
+  };
+
   // ✅ MODIFICATION D'UNE CELLULE
   const handleCellChange = (value: any, rowIndex: number, column: string) => {
     if (!canEdit) return;
     
     console.log('🔍 Modification cellule:', { rowIndex, column, value });
     
-    const updatedCartes = [...cartes] as unknown as CarteComplete[];
+    const updatedCartes = [...localCartes] as unknown as CarteComplete[];
     const carteToUpdate = { 
       ...updatedCartes[rowIndex],
+      // Assurer que l'ID est présent
       ID: updatedCartes[rowIndex].ID || updatedCartes[rowIndex].id,
       id: updatedCartes[rowIndex].id || updatedCartes[rowIndex].ID
     };
@@ -235,16 +267,21 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     }
     
     updatedCartes[rowIndex] = carteToUpdate;
+    const newCartes = updatedCartes as unknown as Carte[];
     
     console.log('✅ Carte mise à jour:', {
       id: carteToUpdate.ID || carteToUpdate.id,
       NOM: carteToUpdate.NOM,
-      nom: carteToUpdate.nom,
       PRENOMS: carteToUpdate.PRENOMS,
-      prenoms: carteToUpdate.prenoms
+      DELIVRANCE: carteToUpdate.DELIVRANCE
     });
     
-    onUpdateCartes(updatedCartes as unknown as Carte[]);
+    // Mettre à jour l'état local
+    setLocalCartes(newCartes);
+    
+    // Notifier le parent avec les cartes formatées pour le backend
+    const cartesPourBackend = newCartes.map(carte => formatCartePourBackend(carte as unknown as CarteComplete));
+    onUpdateCartes(cartesPourBackend as unknown as Carte[]);
   };
 
   // ✅ SAUVEGARDE DE L'ÉDITION
@@ -301,8 +338,21 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
 
   const permissionBadge = getPermissionBadge();
 
+  // ✅ COMPTEUR DE CARTES MODIFIÉES
+  const cartesModifiees = localCartes.filter((carte, index) => {
+    const carteOriginale = cartes[index] as unknown as CarteComplete;
+    const carteActuelle = carte as unknown as CarteComplete;
+    
+    if (!carteOriginale) return false;
+    
+    const delivranceOriginale = carteOriginale.DELIVRANCE || carteOriginale.delivrance || '';
+    const delivranceActuelle = carteActuelle.DELIVRANCE || carteActuelle.delivrance || '';
+    
+    return delivranceActuelle !== delivranceOriginale;
+  });
+
   // ✅ AFFICHER UN MESSAGE SI AUCUNE DONNÉE
-  if (cartes.length === 0) {
+  if (localCartes.length === 0) {
     return (
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
@@ -326,7 +376,15 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             <div>
               <h3 className="text-lg font-bold">Tableau Excel des Cartes</h3>
               <p className="text-white/90 text-sm">
-                {cartes.length} carte{cartes.length > 1 ? 's' : ''} • Rôle: {role}
+                {localCartes.length} carte{localCartes.length > 1 ? 's' : ''} • 
+                {cartesModifiees.length > 0 && (
+                  <span className="ml-2 bg-yellow-500/20 text-yellow-200 px-2 py-0.5 rounded-full text-xs">
+                    {cartesModifiees.length} modifiée{cartesModifiees.length > 1 ? 's' : ''}
+                  </span>
+                )}
+                {showDebugInfo && (
+                  <span className="ml-2 text-xs opacity-70">Rôle: {role}</span>
+                )}
               </p>
             </div>
           </div>
@@ -369,7 +427,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           {/* Corps du tableau */}
           <tbody>
             <AnimatePresence>
-              {cartes.map((carte, rowIndex) => {
+              {localCartes.map((carte, rowIndex) => {
                 const carteComplete = carte as unknown as CarteComplete;
                 const isRetiree = getCellValue(carteComplete, "RETIREE");
                 const carteId = carteComplete.ID || carteComplete.id || rowIndex;
@@ -507,9 +565,26 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span>{cartes.length} carte{cartes.length > 1 ? 's' : ''}</span>
+            <span>{localCartes.length} carte{localCartes.length > 1 ? 's' : ''}</span>
+            {cartesModifiees.length > 0 && (
+              <span className="text-[#F77F00] font-semibold">
+                • {cartesModifiees.length} modifiée{cartesModifiees.length > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
+        
+        {/* Instructions pour l'utilisateur */}
+        {permissions.canModify && canEdit && (
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <p className="text-xs text-gray-500">
+              <span className="font-medium text-[#F77F00]">Instructions :</span> 
+              Cliquez sur une cellule pour éditer, utilisez <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs">Entrée</kbd> pour sauvegarder, 
+              <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs ml-1">Échap</kbd> pour annuler. 
+              <span className="ml-2">Les modifications sont automatiquement enregistrées.</span>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import api, { journalApi } from "../service/api"; // Import de l'API avec journalisation
 
 interface NavbarProps {
   role?: string;
@@ -13,6 +14,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userRole, setUserRole] = useState("Operateur");
+  const [notificationsCount, setNotificationsCount] = useState(0);
   
   // ✅ Détection responsive améliorée
   useEffect(() => {
@@ -41,22 +43,61 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       "Operateur";
     setUserRole(storedRole);
     
+    // ✅ Charger les notifications (journal non lu)
+    fetchNotificationsCount();
+    
+    // ✅ Vérification périodique des notifications
+    const notificationInterval = setInterval(fetchNotificationsCount, 60000); // Toutes les minutes
+    
     return () => {
       window.removeEventListener('resize', checkMobile);
       window.removeEventListener('scroll', handleScroll);
+      clearInterval(notificationInterval);
     };
   }, [role]);
 
+  // ✅ Récupérer le nombre de notifications (actions récentes dans le journal)
+  const fetchNotificationsCount = async () => {
+    try {
+      const response = await api.get('/api/journal/notifications/count', {
+        timeout: 10000
+      });
+      
+      if (response.data.success) {
+        setNotificationsCount(response.data.count || 0);
+      }
+    } catch (error) {
+      console.warn('⚠️ Impossible de charger les notifications:', error);
+      setNotificationsCount(0);
+    }
+  };
+
   // ✅ Gestion du clic sur Accueil
-  const handleAccueilClick = (e: React.MouseEvent) => {
+  const handleAccueilClick = async (e: React.MouseEvent) => {
     if (location.pathname === "/home" || location.pathname === "/dashboard") {
       e.preventDefault();
+      
+      // Journaliser le refresh manuel
+      await journalApi.logAction(
+        'REFRESH_ACCUEIL', 
+        'Rafraîchissement manuel de la page d\'accueil'
+      );
+      
       window.location.reload();
     }
   };
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
+  const toggleMenu = async () => {
+    const newState = !isMenuOpen;
+    setIsMenuOpen(newState);
+    
+    // Journaliser l'ouverture/fermeture du menu mobile
+    if (newState) {
+      await journalApi.logAction(
+        'MENU_MOBILE_OUVERT', 
+        'Ouverture du menu mobile'
+      );
+    }
   };
 
   const isActiveLink = (path: string) => {
@@ -66,7 +107,11 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     return location.pathname === path;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // ⚠️ Récupérer les infos AVANT de nettoyer le localStorage
+    const userId = localStorage.getItem("userId");
+    const nomUtilisateur = localStorage.getItem("nomUtilisateur");
+    
     // ✅ Nettoyage complet du localStorage
     const itemsToRemove = [
       "token", "role", "Role", 
@@ -79,15 +124,77 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     
     itemsToRemove.forEach(item => localStorage.removeItem(item));
     
-    // ✅ Redirection vers la page de connexion
-    navigate("/");
+    try {
+      // ✅ JOURNALISATION DE LA DÉCONNEXION
+      await journalApi.logLogout(nomUtilisateur || userId || 'unknown', true);
+      
+      console.log('✅ Déconnexion journalisée avec succès');
+    } catch (error) {
+      console.warn('⚠️ Journalisation de la déconnexion échouée:', error);
+      // Ne pas bloquer la déconnexion même si la journalisation échoue
+    } finally {
+      // ✅ Redirection vers la page de connexion
+      navigate("/");
+    }
+  };
+
+  // ✅ Gestion du clic sur le lien Journal
+  const handleJournalClick = async (e: React.MouseEvent) => {
+    // Journaliser l'accès au journal
+    await journalApi.logAction(
+      'ACCES_JOURNAL', 
+      'Accès à la page du journal d\'activité'
+    );
+    
+    // Réinitialiser le compteur de notifications si on clique sur le lien
+    if (notificationsCount > 0) {
+      setNotificationsCount(0);
+      try {
+        await api.post('/api/journal/notifications/mark-as-read', {}, {
+          timeout: 10000
+        });
+      } catch (error) {
+        console.warn('⚠️ Impossible de marquer les notifications comme lues:', error);
+      }
+    }
+    
+    // Si on est déjà sur la page journal, rafraîchir
+    if (location.pathname === "/journal") {
+      e.preventDefault();
+      window.location.reload();
+    }
+  };
+
+  // ✅ Gestion du clic sur Recherche
+  const handleRechercheClick = async () => {
+    await journalApi.logAction(
+      'ACCES_RECHERCHE', 
+      'Accès à la page de recherche'
+    );
+  };
+
+  // ✅ Gestion du clic sur Tableau de bord
+  const handleDashboardClick = async () => {
+    await journalApi.logAction(
+      'ACCES_DASHBOARD', 
+      'Accès au tableau de bord'
+    );
+  };
+
+  // ✅ Gestion du clic sur Profil
+  const handleProfilClick = async () => {
+    await journalApi.logAction(
+      'ACCES_PROFIL', 
+      'Accès à la page de profil'
+    );
   };
 
   // ✅ CONFIGURATION DES ACCÈS PAR RÔLE
   const canAccessDashboard = ["Administrateur", "Superviseur"].includes(userRole);
+  const canAccessJournal = true; // Tous les rôles ont accès au journal
   const canAccessProfil = true; // Tous les rôles ont accès au profil
 
-  // ✅ Navigation items
+  // ✅ Navigation items avec gestion des clics
   const navItems = [
     {
       path: "/home",
@@ -104,7 +211,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       icon: "🔍",
       color: "from-blueMain to-greenMain",
       hoverColor: "hover:bg-blue-50 hover:text-blueMain",
-      accessible: true
+      accessible: true,
+      onClick: handleRechercheClick
     },
     {
       path: "/dashboard",
@@ -112,7 +220,18 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       icon: "📊",
       color: "from-greenMain to-blueMain",
       hoverColor: "hover:bg-green-50 hover:text-greenMain",
-      accessible: canAccessDashboard
+      accessible: canAccessDashboard,
+      onClick: handleDashboardClick
+    },
+    {
+      path: "/journal",
+      label: "Journal",
+      icon: "📝",
+      color: "from-purple-500 to-indigo-600",
+      hoverColor: "hover:bg-purple-50 hover:text-purple-600",
+      accessible: canAccessJournal,
+      onClick: handleJournalClick,
+      notificationCount: notificationsCount
     },
     {
       path: "/profil",
@@ -120,7 +239,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       icon: "👤",
       color: "from-orangeMain to-blueMain",
       hoverColor: "hover:bg-orange-50 hover:text-orangeMain",
-      accessible: canAccessProfil
+      accessible: canAccessProfil,
+      onClick: handleProfilClick
     }
   ];
 
@@ -128,6 +248,15 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
   const getFirstName = () => {
     const nomComplet = localStorage.getItem("nomComplet") || localStorage.getItem("NomComplet") || "";
     return nomComplet.split(' ')[0] || "Utilisateur";
+  };
+
+  // ✅ Obtenir le nom de l'agence formaté
+  const getFormattedAgence = () => {
+    const agence = localStorage.getItem("agence") || localStorage.getItem("Agence") || "";
+    if (agence.length > 15) {
+      return agence.substring(0, 12) + '...';
+    }
+    return agence || "Non spécifiée";
   };
 
   // ✅ Classes dynamiques pour la navbar
@@ -142,7 +271,11 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
 
   return (
     <>
-      <nav className={navbarClasses}>
+      <nav 
+        className={navbarClasses}
+        role="navigation"
+        aria-label="Navigation principale"
+      >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
             {/* Logo et titre - Responsive amélioré */}
@@ -191,10 +324,18 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
                       : `text-gray-700 ${item.hoverColor}`
                   }`}
+                  aria-current={isActiveLink(item.path) ? "page" : undefined}
                 >
                   <span className="flex items-center gap-2 whitespace-nowrap">
                     <span className="text-base">{item.icon}</span>
                     <span>{item.label}</span>
+                    
+                    {/* Badge de notification pour le Journal */}
+                    {item.notificationCount && item.notificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                        {item.notificationCount > 9 ? '9+' : item.notificationCount}
+                      </span>
+                    )}
                   </span>
                   {isActiveLink(item.path) && (
                     <motion.div
@@ -294,7 +435,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       if (item.onClick) item.onClick(e);
                       setIsMenuOpen(false);
                     }}
-                    className={`block px-4 py-3 rounded-xl transition-all duration-300 font-semibold text-sm ${
+                    className={`block px-4 py-3 rounded-xl transition-all duration-300 font-semibold text-sm relative ${
                       isActiveLink(item.path)
                         ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
                         : `text-gray-700 bg-gray-50 hover:bg-gray-100`
@@ -306,6 +447,14 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                         <span className="text-lg">{item.icon}</span>
                         <span>{item.label}</span>
                       </span>
+                      
+                      {/* Badge de notification mobile */}
+                      {item.notificationCount && item.notificationCount > 0 && (
+                        <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                          {item.notificationCount > 9 ? '9+' : item.notificationCount}
+                        </span>
+                      )}
+                      
                       {isActiveLink(item.path) && (
                         <motion.div
                           layoutId="mobile-navbar-indicator"
@@ -336,7 +485,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       <div className="bg-white/90 rounded-lg p-2 text-center">
                         <div className="text-gray-500">Agence</div>
                         <div className="font-medium text-gray-800 truncate">
-                          {localStorage.getItem("agence")?.substring(0, 12) || "Non spécifiée"}
+                          {getFormattedAgence()}
                         </div>
                       </div>
                       <div className="bg-white/90 rounded-lg p-2 text-center">
@@ -352,7 +501,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                   <div className="text-xs text-gray-500 mb-2">Actions rapides</div>
                   <div className="grid grid-cols-2 gap-2">
                     <motion.button
-                      onClick={() => {
+                      onClick={async () => {
+                        await handleProfilClick();
                         navigate("/profil");
                         setIsMenuOpen(false);
                       }}
@@ -362,7 +512,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       <div className="text-blueMain text-sm font-medium">👤 Profil</div>
                     </motion.button>
                     <motion.button
-                      onClick={() => {
+                      onClick={async () => {
+                        await handleRechercheClick();
                         navigate("/inventaire");
                         setIsMenuOpen(false);
                       }}
@@ -372,6 +523,28 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       <div className="text-orangeMain text-sm font-medium">🔍 Recherche</div>
                     </motion.button>
                   </div>
+                  
+                  {/* Bouton Journal avec notifications */}
+                  <motion.button
+                    onClick={async (e) => {
+                      await handleJournalClick(e);
+                      if (!(e as any).defaultPrevented) {
+                        navigate("/journal");
+                        setIsMenuOpen(false);
+                      }
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full mt-2 bg-gradient-to-r from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-purple-600 text-sm font-medium">📝 Journal</span>
+                      {notificationsCount > 0 && (
+                        <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                          {notificationsCount > 9 ? '9+' : notificationsCount}
+                        </span>
+                      )}
+                    </div>
+                  </motion.button>
                 </div>
               </div>
               

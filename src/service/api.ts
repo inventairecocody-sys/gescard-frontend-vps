@@ -66,7 +66,126 @@ const getAxiosConfig = () => {
 // ✅ Création de l'instance axios
 const api = axios.create(getAxiosConfig());
 
-// ✅ INTERCEPTEUR DE REQUÊTES AVEC TIMEOUTS ADAPTATIFS
+// ✅ FONCTION POUR JOURNALISER LES ACTIONS
+const logActionToJournal = async (actionData: {
+  actionType: string;
+  details: string;
+  status?: 'success' | 'error';
+  requestId?: string;
+  duration?: number;
+  additionalData?: Record<string, any>;
+}) => {
+  try {
+    // Récupérer les infos utilisateur
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    const nomUtilisateur = localStorage.getItem('nomUtilisateur');
+    const nomComplet = localStorage.getItem('nomComplet');
+    const role = localStorage.getItem('role') || localStorage.getItem('Role');
+    const agence = localStorage.getItem('agence');
+    
+    // Ne pas journaliser si pas d'utilisateur connecté
+    if (!token || !userId) {
+      return;
+    }
+    
+    // Préparer les données de journalisation
+    const logData = {
+      actionType: actionData.actionType,
+      details: actionData.details,
+      utilisateurId: userId,
+      nomUtilisateur: nomUtilisateur,
+      nomComplet: nomComplet,
+      role: role,
+      agence: agence,
+      status: actionData.status || 'success',
+      requestId: actionData.requestId,
+      duration: actionData.duration,
+      adresseIP: 'client-side', // IP côté client
+      timestamp: new Date().toISOString(),
+      ...actionData.additionalData
+    };
+    
+    // Envoyer au backend pour journalisation
+    await api.post('/api/journal/log', logData, {
+      headers: {
+        'X-Log-Only': 'true', // Header pour éviter la journalisation en boucle
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 5000 // Court timeout pour ne pas bloquer
+    });
+    
+    console.log(`📝 Action journalisée: ${actionData.actionType}`);
+    
+  } catch (error) {
+    // Ne pas bloquer l'application si la journalisation échoue
+    console.warn('⚠️ Journalisation échouée:', error);
+  }
+};
+
+// ✅ JOURNALISATION AUTOMATIQUE DES REQUÊTES CRITIQUES
+const shouldAutoLogRequest = (url: string | undefined): boolean => {
+  if (!url) return false;
+  
+  // Liste des endpoints à journaliser automatiquement
+  const endpointsToLog = [
+    '/api/import-export/import',
+    '/api/import-export/bulk-import',
+    '/api/import-export/export',
+    '/api/import-export/export/stream',
+    '/api/cartes/create',
+    '/api/cartes/update/',
+    '/api/cartes/delete/',
+    '/api/backup/create',
+    '/api/backup/restore',
+    '/api/journal/annuler-import',
+    '/api/journal/undo/'
+  ];
+  
+  return endpointsToLog.some(endpoint => url.includes(endpoint));
+};
+
+// ✅ DÉTECTER LE TYPE D'ACTION DEPUIS L'URL
+const getActionTypeFromUrl = (url: string | undefined, method: string | undefined): string => {
+  if (!url || !method) return 'UNKNOWN_ACTION';
+  
+  const methodUpper = method.toUpperCase();
+  
+  // Import/Export
+  if (url.includes('/import-export/import')) {
+    return methodUpper === 'POST' ? 'IMPORT_CARTE' : 'GET_IMPORT_STATUS';
+  }
+  if (url.includes('/bulk-import')) {
+    if (url.includes('/status/')) return 'CHECK_BULK_IMPORT_STATUS';
+    if (url.includes('/cancel/')) return 'CANCEL_BULK_IMPORT';
+    return 'START_BULK_IMPORT';
+  }
+  if (url.includes('/export')) {
+    if (url.includes('/stream')) return 'EXPORT_STREAMING';
+    if (url.includes('/filtered')) return 'EXPORT_FILTERED';
+    return 'EXPORT_CARTES';
+  }
+  
+  // Cartes
+  if (url.includes('/cartes/create')) return 'CREATION_CARTE';
+  if (url.includes('/cartes/update/')) return 'MODIFICATION_CARTE';
+  if (url.includes('/cartes/delete/')) return 'SUPPRESSION_CARTE';
+  
+  // Backup
+  if (url.includes('/backup/create')) return 'BACKUP_CREATE';
+  if (url.includes('/backup/restore')) return 'BACKUP_RESTORE';
+  
+  // Journal
+  if (url.includes('/journal/annuler-import')) return 'ANNULATION_IMPORT';
+  if (url.includes('/journal/undo/')) return 'ANNULATION_MANUEL';
+  
+  // Template
+  if (url.includes('/template')) return 'TELECHARGEMENT_TEMPLATE';
+  
+  return `${methodUpper}_${url.split('/').pop()?.toUpperCase() || 'REQUEST'}`;
+};
+
+// ✅ INTERCEPTEUR DE REQUÊTES AVEC TIMEOUTS ADAPTATIFS ET JOURNALISATION
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Convertir en type étendu
@@ -81,7 +200,9 @@ api.interceptors.request.use(
     // 🎯 AJOUTER LES MÉTADONNÉES
     extendedConfig.metadata = {
       startTime: Date.now(),
-      requestType: 'standard'
+      requestType: 'standard',
+      shouldLog: shouldAutoLogRequest(extendedConfig.url),
+      actionType: getActionTypeFromUrl(extendedConfig.url, extendedConfig.method)
     };
     
     // 🎯 TIMEOUTS SPÉCIFIQUES PAR TYPE DE REQUÊTE
@@ -117,7 +238,9 @@ api.interceptors.request.use(
     }
     
     // Ajouter un ID de requête pour le tracking
-    extendedConfig.headers['X-Request-ID'] = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    extendedConfig.headers['X-Request-ID'] = requestId;
+    extendedConfig.metadata.requestId = requestId;
     
     return extendedConfig;
   },
@@ -127,9 +250,9 @@ api.interceptors.request.use(
   }
 );
 
-// ✅ INTERCEPTEUR DE RÉPONSES AVEC GESTION D'ERREURS AMÉLIORÉE
+// ✅ INTERCEPTEUR DE RÉPONSES AVEC GESTION D'ERREURS AMÉLIORÉE ET JOURNALISATION
 api.interceptors.response.use(
-  (response: AxiosResponse) => {
+  async (response: AxiosResponse) => {
     // Convertir en type étendu
     const extendedConfig = response.config as ExtendedInternalAxiosRequestConfig;
     const requestId = extendedConfig.headers?.['X-Request-ID'] as string;
@@ -146,14 +269,60 @@ api.interceptors.response.use(
     const requestType = extendedConfig.metadata?.requestType || 'standard';
     console.log(`✅ ${response.status} ${requestType.toUpperCase()} ${response.config.url} (${duration}ms) - ID: ${requestId}`);
     
+    // ✅ JOURNALISATION AUTOMATIQUE POUR LES REQUÊTES IMPORTANTES
+    if (extendedConfig.metadata?.shouldLog) {
+      const actionType = extendedConfig.metadata?.actionType || 'UNKNOWN_ACTION';
+      const url = extendedConfig.url || 'unknown';
+      const method = extendedConfig.method || 'GET';
+      
+      // Détails spécifiques selon le type de réponse
+      let details = `${method.toUpperCase()} ${url}`;
+      let additionalData: Record<string, any> = {};
+      
+      // Extraire des informations spécifiques de la réponse
+      if (response.data) {
+        if (actionType.includes('IMPORT') && response.data.stats) {
+          details = `Import terminé: ${response.data.stats.imported} importés, ${response.data.stats.updated} mis à jour`;
+          additionalData = {
+            stats: response.data.stats,
+            importBatchID: response.data.importBatchID
+          };
+        }
+        else if (actionType.includes('EXPORT')) {
+          details = `Export terminé: ${response.headers['content-length'] || '0'} octets`;
+          additionalData = {
+            size: response.headers['content-length'],
+            contentType: response.headers['content-type']
+          };
+        }
+        else if (actionType.includes('CREATION') || actionType.includes('MODIFICATION')) {
+          details = `Carte ${actionType.includes('CREATION') ? 'créée' : 'modifiée'}`;
+          if (response.data.carteId || response.data.id) {
+            additionalData.recordId = response.data.carteId || response.data.id;
+          }
+        }
+      }
+      
+      // Journaliser l'action
+      await logActionToJournal({
+        actionType,
+        details,
+        status: 'success',
+        requestId,
+        duration,
+        additionalData
+      });
+    }
+    
     return response;
   },
-  (error: any) => {
+  async (error: any) => {
     const extendedConfig = error.config as ExtendedInternalAxiosRequestConfig | undefined;
     const requestId = extendedConfig?.headers?.['X-Request-ID'] as string;
     const url = extendedConfig?.url || 'unknown';
     const method = extendedConfig?.method?.toUpperCase() || 'UNKNOWN';
     const requestType = extendedConfig?.metadata?.requestType || 'standard';
+    const actionType = extendedConfig?.metadata?.actionType || 'UNKNOWN_ACTION';
     
     // Calculer la durée même en cas d'erreur
     let duration = 0;
@@ -162,6 +331,26 @@ api.interceptors.response.use(
       extendedConfig.metadata.endTime = endTime;
       extendedConfig.metadata.duration = endTime - extendedConfig.metadata.startTime;
       duration = extendedConfig.metadata.duration;
+    }
+    
+    // ✅ JOURNALISATION DES ERREURS POUR LES REQUÊTES IMPORTANTES
+    if (extendedConfig?.metadata?.shouldLog) {
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur inconnue';
+      const errorStatus = error.response?.status || 0;
+      
+      await logActionToJournal({
+        actionType: `${actionType}_ERROR`,
+        details: `Erreur ${errorStatus}: ${errorMessage}`,
+        status: 'error',
+        requestId,
+        duration,
+        additionalData: {
+          errorStatus,
+          errorMessage: errorMessage.substring(0, 500), // Limiter la taille
+          url,
+          method
+        }
+      });
     }
     
     // 🕒 GESTION SPÉCIFIQUE DES TIMEOUTS
@@ -231,6 +420,15 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       console.warn(`🔐 UNAUTHORIZED ${requestType.toUpperCase()} ${method} ${url} (${duration}ms) - ID: ${requestId}`);
       
+      // Journaliser la déconnexion automatique
+      await logActionToJournal({
+        actionType: 'DECONNEXION_AUTOMATIQUE',
+        details: 'Session expirée - Déconnexion automatique',
+        status: 'error',
+        requestId,
+        duration
+      });
+      
       // Nettoyer le localStorage uniquement pour les erreurs d'authentification
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -287,6 +485,58 @@ api.interceptors.response.use(
     });
   }
 );
+
+// ✅ FONCTION EXPORTÉE POUR JOURNALISATION MANUELLE
+export const journalApi = {
+  // Journaliser une action manuellement
+  logAction: async (actionType: string, details: string, additionalData?: Record<string, any>) => {
+    return logActionToJournal({
+      actionType,
+      details,
+      additionalData
+    });
+  },
+  
+  // Journaliser une connexion
+  logLogin: async (username: string, success: boolean, errorMessage?: string) => {
+    return logActionToJournal({
+      actionType: success ? 'CONNEXION' : 'CONNEXION_ECHOUEE',
+      details: success ? `Connexion réussie: ${username}` : `Échec connexion: ${errorMessage || 'Mot de passe incorrect'}`,
+      status: success ? 'success' : 'error',
+      additionalData: {
+        username,
+        success,
+        errorMessage
+      }
+    });
+  },
+  
+  // Journaliser une déconnexion
+  logLogout: async (username: string, manual: boolean = true) => {
+    return logActionToJournal({
+      actionType: 'DECONNEXION',
+      details: manual ? 'Déconnexion manuelle' : 'Déconnexion automatique',
+      status: 'success',
+      additionalData: {
+        username,
+        manual
+      }
+    });
+  },
+  
+  // Journaliser une recherche
+  logSearch: async (searchParams: Record<string, any>, resultCount: number) => {
+    return logActionToJournal({
+      actionType: 'RECHERCHE',
+      details: `Recherche effectuée: ${resultCount} résultats`,
+      status: 'success',
+      additionalData: {
+        searchParams,
+        resultCount
+      }
+    });
+  }
+};
 
 // ✅ INTERFACES POUR LES RÉPONSES API
 interface ImportStats {
@@ -589,3 +839,4 @@ export const fileHelper = {
 
 // ✅ Export par défaut
 export default api;
+// NE PAS EXPORTER journalApi ICI - Il est déjà exporté plus haut
