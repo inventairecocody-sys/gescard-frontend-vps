@@ -14,12 +14,15 @@ const Home: React.FC = () => {
     role: ""
   });
   
-  // Fonction pour récupérer les données utilisateur
+  // Fonction pour récupérer les données utilisateur avec formatage du titre (Mr/Mme)
   const getUserData = () => {
-    const nomComplet = localStorage.getItem("nomComplet") || 
-                      localStorage.getItem("NomComplet") || 
-                      sessionStorage.getItem("nomComplet") || 
-                      "Utilisateur";
+    let nomComplet = localStorage.getItem("nomComplet") || 
+                    localStorage.getItem("NomComplet") || 
+                    sessionStorage.getItem("nomComplet") || 
+                    "Utilisateur";
+    
+    // Ajouter Mr/Mme devant le nom complet
+    nomComplet = addTitleToName(nomComplet);
     
     const agence = localStorage.getItem("agence") || 
                    localStorage.getItem("Agence") || 
@@ -32,6 +35,36 @@ const Home: React.FC = () => {
                  "Utilisateur";
     
     return { nomComplet, agence, role };
+  };
+
+  // Fonction pour ajouter Mr/Mme devant le nom
+  const addTitleToName = (fullName: string): string => {
+    if (!fullName || fullName === "Utilisateur") return "Utilisateur";
+    
+    // Supprimer d'éventuels préfixes existants
+    const cleanName = fullName.replace(/^(Mr\.?|Mme\.?|M\.?)\s*/i, '').trim();
+    
+    // Vérifier si c'est probablement un nom de femme (basé sur des règles simples)
+    // Note: C'est une approche simplifiée, dans un cas réel, on aurait une base de données des genres
+    const isLikelyFemale = (name: string): boolean => {
+      const femaleIndicators = [
+        // Prénoms féminins courants
+        /marie/i, /anne/i, /catherine/i, /sophie/i, /isabelle/i, /valerie/i,
+        /nathalie/i, /christine/i, /patricia/i, /sandrine/i, /caroline/i,
+        /chantal/i, /dominique/i, /françoise/i, /laurence/i, /severine/i,
+        /sylvie/i, /veronique/i, /audrey/i, /claire/i, /elodie/i,
+        // Terminaisons féminines
+        /ette$/i, /ine$/i, /elle$/i, /ie$/i, /e$/i
+      ];
+      
+      const firstName = name.split(' ')[0] || name;
+      return femaleIndicators.some(indicator => indicator.test(firstName));
+    };
+    
+    // Déterminer le titre approprié
+    const title = isLikelyFemale(cleanName) ? "Mme" : "Mr";
+    
+    return `${title} ${cleanName}`;
   };
 
   // Détection responsive
@@ -77,13 +110,6 @@ const Home: React.FC = () => {
     second: '2-digit'
   });
 
-  // Récupérer le prénom
-  const getFirstName = () => {
-    const fullName = userData.nomComplet;
-    if (!fullName || fullName === "Utilisateur") return "Utilisateur";
-    return fullName.split(' ')[0] || fullName;
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Navbar role={userData.role} />
@@ -125,7 +151,7 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-base md:text-xl">👋</span>
                   <p className="text-sm md:text-lg text-white/90">
-                    Bienvenue, <span className="font-semibold text-white">{getFirstName()}</span>
+                    Bienvenue, <span className="font-semibold text-white">{userData.nomComplet}</span>
                   </p>
                 </div>
                 
@@ -135,9 +161,6 @@ const Home: React.FC = () => {
                   </span>
                   <span className="text-xs md:text-sm px-2 md:px-3 py-1 bg-white/20 rounded-lg backdrop-blur-sm flex items-center gap-1">
                     <span>🎯</span> {userData.role}
-                  </span>
-                  <span className="text-xs md:text-sm px-2 md:px-3 py-1 bg-white/20 rounded-lg backdrop-blur-sm">
-                    GESCARD Platform
                   </span>
                 </div>
               </div>
@@ -229,7 +252,7 @@ const Home: React.FC = () => {
           <WelcomeCoordinationUnified isMobile={isMobile} />
         </motion.div>
 
-        {/* SECTION FONCTIONNALITÉS */}
+        {/* SECTION FONCTIONNALITÉS (MODIFIÉE) */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -242,31 +265,67 @@ const Home: React.FC = () => {
             <div className="relative z-10">
               <div className="text-center mb-4 md:mb-6">
                 <h2 className="font-bold text-lg md:text-2xl mb-2">
-                  Fonctionnalités GESCARD
+                  Caractéristiques GESCARD
                 </h2>
                 <p className="text-sm md:text-base text-blue-100">
-                  Découvrez toutes les possibilités de notre plateforme
+                  Une plateforme puissante et intuitive
                 </p>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { icon: "🔍", title: "Recherche", desc: "Multi-critères" },
-                  { icon: "📊", title: "Filtres", desc: "Avancés" },
-                  { icon: "💾", title: "Export", desc: "Excel/PDF" },
-                  { icon: "📱", title: "Mobile", desc: "Responsive" },
-                  { icon: "⚡", title: "Rapidité", desc: "Instantané" },
-                  { icon: "🔒", title: "Sécurité", desc: "Données protégées" },
-                  { icon: "📈", title: "Stats", desc: "Analytiques" },
-                  { icon: "🤝", title: "Collaboration", desc: "Équipe" }
+                  { 
+                    icon: "✅", 
+                    title: "Plateforme Active", 
+                    desc: "Système Opérationnel"
+                  },
+                  { 
+                    icon: "📱", 
+                    title: "Mobile", 
+                    desc: "Responsive"
+                  },
+                  { 
+                    icon: "💾", 
+                    title: "Export", 
+                    desc: "Excel/PDF"
+                  },
+                  { 
+                    icon: "⚡", 
+                    title: "Rapidité", 
+                    desc: "Performance optimale"
+                  },
+                  { 
+                    icon: "🔒", 
+                    title: "Sécurité", 
+                    desc: "Données protégées"
+                  },
+                  { 
+                    icon: "📊", 
+                    title: "Statistiques", 
+                    desc: "Analyses détaillées"
+                  },
+                  { 
+                    icon: "🤝", 
+                    title: "Collaboration", 
+                    desc: "Équipe unifiée"
+                  },
+                  { 
+                    icon: "🔄", 
+                    title: "Actualisation", 
+                    desc: "Temps réel"
+                  }
                 ].map((item, index) => (
                   <motion.div 
                     key={index}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    className="bg-white/10 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm border border-white/20"
+                    whileHover={{ 
+                      scale: 1.05, 
+                      y: -2,
+                      backgroundColor: "rgba(255, 255, 255, 0.15)"
+                    }}
+                    className="bg-white/10 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm border border-white/20 hover:border-white/30 transition-all duration-300"
                   >
                     <div className="text-xl md:text-2xl mb-1 md:mb-2">{item.icon}</div>
-                    <div className="font-semibold text-sm md:text-base">{item.title}</div>
+                    <div className="font-semibold text-sm md:text-base mb-1">{item.title}</div>
                     <div className="text-xs md:text-sm text-white/80">{item.desc}</div>
                   </motion.div>
                 ))}
@@ -275,15 +334,75 @@ const Home: React.FC = () => {
               <div className="text-center mt-4 md:mt-6">
                 <Link to="/inventaire">
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ 
+                      scale: 1.02,
+                      boxShadow: "0 8px 25px rgba(255, 255, 255, 0.3)"
+                    }}
                     whileTap={{ scale: 0.98 }}
                     className="bg-white text-[#0077B6] px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 md:gap-3 mx-auto"
                   >
-                    <span>🚀</span>
-                    Découvrir GESCARD
-                    <span>→</span>
+                    <span className="text-lg">🚀</span>
+                    <span>Explorer GESCARD</span>
+                    <span className="transform group-hover:translate-x-1 transition-transform duration-300">→</span>
                   </motion.button>
                 </Link>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* SECTION AVANTAGES SUPPLÉMENTAIRES */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mb-6"
+        >
+          <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] rounded-2xl p-5 md:p-6 text-white shadow-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-lg">⏱️</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Gain de Temps</h3>
+                    <p className="text-sm text-white/90">Optimisation des processus</p>
+                  </div>
+                </div>
+                <p className="text-sm text-white/80">
+                  Réduction significative du temps de recherche et de gestion des cartes
+                </p>
+              </div>
+              
+              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-lg">🎯</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Précision</h3>
+                    <p className="text-sm text-white/90">Données fiables</p>
+                  </div>
+                </div>
+                <p className="text-sm text-white/80">
+                  Élimination des erreurs manuelles grâce à l'automatisation
+                </p>
+              </div>
+              
+              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-lg">📈</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Productivité</h3>
+                    <p className="text-sm text-white/90">Efficacité accrue</p>
+                  </div>
+                </div>
+                <p className="text-sm text-white/80">
+                  Augmentation de la productivité des équipes de coordination
+                </p>
               </div>
             </div>
           </div>

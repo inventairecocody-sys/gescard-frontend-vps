@@ -139,7 +139,11 @@ const shouldAutoLogRequest = (url: string | undefined): boolean => {
     '/api/backup/create',
     '/api/backup/restore',
     '/api/journal/annuler-import',
-    '/api/journal/undo/'
+    '/api/journal/undo/',
+    '/api/utilisateurs/create',
+    '/api/utilisateurs/update/',
+    '/api/utilisateurs/delete/',
+    '/api/utilisateurs/reset-password'
   ];
   
   return endpointsToLog.some(endpoint => url.includes(endpoint));
@@ -170,6 +174,14 @@ const getActionTypeFromUrl = (url: string | undefined, method: string | undefine
   if (url.includes('/cartes/create')) return 'CREATION_CARTE';
   if (url.includes('/cartes/update/')) return 'MODIFICATION_CARTE';
   if (url.includes('/cartes/delete/')) return 'SUPPRESSION_CARTE';
+  
+  // Utilisateurs
+  if (url.includes('/utilisateurs/create')) return 'CREATE_USER';
+  if (url.includes('/utilisateurs/update/')) return 'UPDATE_USER';
+  if (url.includes('/utilisateurs/delete/')) return 'DELETE_USER';
+  if (url.includes('/utilisateurs/activate')) return 'ACTIVATE_USER';
+  if (url.includes('/utilisateurs/reset-password')) return 'RESET_PASSWORD';
+  if (url.includes('/utilisateurs/check-username')) return 'CHECK_USERNAME';
   
   // Backup
   if (url.includes('/backup/create')) return 'BACKUP_CREATE';
@@ -296,9 +308,17 @@ api.interceptors.response.use(
           };
         }
         else if (actionType.includes('CREATION') || actionType.includes('MODIFICATION')) {
-          details = `Carte ${actionType.includes('CREATION') ? 'créée' : 'modifiée'}`;
-          if (response.data.carteId || response.data.id) {
-            additionalData.recordId = response.data.carteId || response.data.id;
+          if (actionType.includes('USER')) {
+            details = `Utilisateur ${actionType.includes('CREATION') ? 'créé' : 'modifié'}`;
+            if (response.data.userId || response.data.id) {
+              additionalData.userId = response.data.userId || response.data.id;
+              additionalData.username = response.data.nomUtilisateur || response.data.username;
+            }
+          } else {
+            details = `Carte ${actionType.includes('CREATION') ? 'créée' : 'modifiée'}`;
+            if (response.data.carteId || response.data.id) {
+              additionalData.recordId = response.data.carteId || response.data.id;
+            }
           }
         }
       }
@@ -486,7 +506,78 @@ api.interceptors.response.use(
   }
 );
 
-// ✅ FONCTION EXPORTÉE POUR JOURNALISATION MANUELLE
+// ✅ SERVICE POUR LES UTILISATEURS
+export const userApi = {
+  // Récupérer tous les utilisateurs
+  getAll: async (): Promise<AxiosResponse<any[]>> => {
+    return api.get('/api/utilisateurs');
+  },
+
+  // Récupérer un utilisateur par ID
+  getById: async (id: number): Promise<AxiosResponse<any>> => {
+    return api.get(`/api/utilisateurs/${id}`);
+  },
+
+  // Créer un utilisateur
+  create: async (userData: {
+    NomUtilisateur: string;
+    NomComplet: string;
+    Email?: string;
+    Agence?: string;
+    Role: string;
+    MotDePasse: string;
+  }): Promise<AxiosResponse<any>> => {
+    return api.post('/api/utilisateurs', userData);
+  },
+
+  // Modifier un utilisateur
+  update: async (id: number, userData: any): Promise<AxiosResponse<any>> => {
+    return api.put(`/api/utilisateurs/${id}`, userData);
+  },
+
+  // Supprimer (désactiver) un utilisateur
+  delete: async (id: number): Promise<AxiosResponse<any>> => {
+    return api.delete(`/api/utilisateurs/${id}`);
+  },
+
+  // Réactiver un utilisateur
+  activate: async (id: number): Promise<AxiosResponse<any>> => {
+    return api.put(`/api/utilisateurs/${id}/activate`, {});
+  },
+
+  // Réinitialiser le mot de passe
+  resetPassword: async (id: number, data: { newPassword: string }): Promise<AxiosResponse<any>> => {
+    return api.put(`/api/utilisateurs/${id}/reset-password`, data);
+  },
+
+  // Vérifier la disponibilité d'un nom d'utilisateur
+  checkUsername: async (username: string, excludeId?: number): Promise<AxiosResponse<any>> => {
+    const params = new URLSearchParams({ username });
+    if (excludeId) params.append('excludeId', excludeId.toString());
+    
+    return api.get(`/api/utilisateurs/check-username?${params.toString()}`);
+  },
+
+  // Changer son propre mot de passe
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<AxiosResponse<any>> => {
+    return api.put('/api/utilisateurs/change-password', data);
+  },
+
+  // Récupérer les statistiques des utilisateurs
+  getStats: async (): Promise<AxiosResponse<any>> => {
+    return api.get('/api/utilisateurs/stats');
+  },
+
+  // Rechercher des utilisateurs
+  search: async (query: string): Promise<AxiosResponse<any>> => {
+    return api.get(`/api/utilisateurs/search?q=${encodeURIComponent(query)}`);
+  }
+};
+
+// ✅ SERVICE POUR LE JOURNAL
 export const journalApi = {
   // Journaliser une action manuellement
   logAction: async (actionType: string, details: string, additionalData?: Record<string, any>) => {
@@ -535,6 +626,28 @@ export const journalApi = {
         resultCount
       }
     });
+  },
+
+  // Récupérer les logs
+  getLogs: async (page = 1, limit = 50, filters?: any): Promise<AxiosResponse<any>> => {
+    return api.get('/api/journal', {
+      params: { page, limit, ...filters }
+    });
+  },
+
+  // Récupérer les statistiques du journal
+  getStats: async (): Promise<AxiosResponse<any>> => {
+    return api.get('/api/journal/stats');
+  },
+
+  // Annuler une action
+  undoAction: async (actionId: string): Promise<AxiosResponse<any>> => {
+    return api.post(`/api/journal/undo/${actionId}`);
+  },
+
+  // Effacer les anciens logs
+  clearOldLogs: async (days: number): Promise<AxiosResponse<any>> => {
+    return api.delete(`/api/journal/clear?days=${days}`);
   }
 };
 
@@ -826,7 +939,7 @@ export const fileHelper = {
     document.body.removeChild(a);
   },
   
-  // Ajout : Formater la durée en format lisible
+  // Formater la durée en format lisible
   formatDuration: (ms: number): string => {
     const seconds = Math.floor(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
@@ -837,5 +950,98 @@ export const fileHelper = {
   }
 };
 
-// ✅ Export par défaut
+// ✅ API GÉNÉRIQUE POUR LES CARTES
+export const cartesApi = {
+  // Récupérer toutes les cartes
+  getAll: (page = 1, limit = 50, filters?: any): Promise<AxiosResponse<any>> => 
+    api.get('/api/cartes', { params: { page, limit, ...filters } }),
+  
+  // Rechercher des cartes
+  search: (query: string, filters?: any): Promise<AxiosResponse<any>> => 
+    api.get('/api/cartes/search', { params: { q: query, ...filters } }),
+  
+  // Récupérer une carte par ID
+  getById: (id: string | number): Promise<AxiosResponse<any>> => 
+    api.get(`/api/cartes/${id}`),
+  
+  // Créer une carte
+  create: (carteData: any): Promise<AxiosResponse<any>> => 
+    api.post('/api/cartes', carteData),
+  
+  // Mettre à jour une carte
+  update: (id: string | number, carteData: any): Promise<AxiosResponse<any>> => 
+    api.put(`/api/cartes/${id}`, carteData),
+  
+  // Supprimer une carte
+  delete: (id: string | number): Promise<AxiosResponse<any>> => 
+    api.delete(`/api/cartes/${id}`),
+  
+  // Récupérer les statistiques
+  getStats: (): Promise<AxiosResponse<any>> => 
+    api.get('/api/cartes/stats'),
+  
+  // Récupérer les sites uniques
+  getUniqueSites: (): Promise<AxiosResponse<any>> => 
+    api.get('/api/cartes/sites'),
+  
+  // Récupérer les dates de création
+  getCreationDates: (): Promise<AxiosResponse<any>> => 
+    api.get('/api/cartes/dates')
+};
+
+// ✅ API POUR L'AUTHENTIFICATION
+export const authApi = {
+  // Connexion
+  login: (credentials: { username: string; password: string }): Promise<AxiosResponse<any>> =>
+    api.post('/api/auth/login', credentials),
+  
+  // Vérification du token
+  verifyToken: (): Promise<AxiosResponse<any>> =>
+    api.get('/api/auth/verify'),
+  
+  // Rafraîchir le token
+  refreshToken: (): Promise<AxiosResponse<any>> =>
+    api.post('/api/auth/refresh'),
+  
+  // Déconnexion
+  logout: (): Promise<AxiosResponse<any>> =>
+    api.post('/api/auth/logout'),
+  
+  // Récupérer le profil utilisateur
+  getProfile: (): Promise<AxiosResponse<any>> =>
+    api.get('/api/auth/profile'),
+  
+  // Mettre à jour le profil
+  updateProfile: (profileData: any): Promise<AxiosResponse<any>> =>
+    api.put('/api/auth/profile', profileData)
+};
+
+// ✅ API POUR LES BACKUPS
+export const backupApi = {
+  // Créer un backup
+  create: (): Promise<AxiosResponse<any>> =>
+    api.post('/api/backup/create'),
+  
+  // Restaurer un backup
+  restore: (backupId: string): Promise<AxiosResponse<any>> =>
+    api.post(`/api/backup/restore/${backupId}`),
+  
+  // Lister les backups
+  list: (): Promise<AxiosResponse<any>> =>
+    api.get('/api/backup'),
+  
+  // Télécharger un backup
+  download: (backupId: string): Promise<AxiosResponse<Blob>> =>
+    api.get(`/api/backup/download/${backupId}`, { responseType: 'blob' }),
+  
+  // Supprimer un backup
+  delete: (backupId: string): Promise<AxiosResponse<any>> =>
+    api.delete(`/api/backup/${backupId}`),
+  
+  // Statistiques des backups
+  getStats: (): Promise<AxiosResponse<any>> =>
+    api.get('/api/backup/stats')
+};
+
+// ✅ EXPORT PAR DÉFAUT
 export default api;

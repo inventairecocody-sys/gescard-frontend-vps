@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import api, { journalApi } from "../service/api"; // Import de l'API avec journalisation
+import { journalApi } from "../service/api";
 
 interface NavbarProps {
   role?: string;
@@ -14,20 +14,15 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userRole, setUserRole] = useState("Operateur");
-  const [notificationsCount, setNotificationsCount] = useState(0);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
-  // ✅ Détection responsive améliorée
   useEffect(() => {
     const checkMobile = () => {
       const width = window.innerWidth;
-      // Breakpoints précis
-      if (width < 640) setIsMobile(true); // xs
-      else if (width < 768) setIsMobile(true); // sm
-      else if (width < 1024) setIsMobile(false); // md
-      else setIsMobile(false); // lg et +
+      if (width < 768) setIsMobile(true);
+      else setIsMobile(false);
     };
     
-    // Détection du scroll pour l'effet de transparence
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
@@ -36,48 +31,22 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     window.addEventListener('resize', checkMobile);
     window.addEventListener('scroll', handleScroll);
     
-    // ✅ Récupération du rôle utilisateur avec fallback
     const storedRole = role || 
                       localStorage.getItem("role") || 
                       localStorage.getItem("Role") || 
                       "Operateur";
     setUserRole(storedRole);
     
-    // ✅ Charger les notifications (journal non lu)
-    fetchNotificationsCount();
-    
-    // ✅ Vérification périodique des notifications
-    const notificationInterval = setInterval(fetchNotificationsCount, 60000); // Toutes les minutes
-    
     return () => {
       window.removeEventListener('resize', checkMobile);
       window.removeEventListener('scroll', handleScroll);
-      clearInterval(notificationInterval);
     };
   }, [role]);
 
-  // ✅ Récupérer le nombre de notifications (actions récentes dans le journal)
-  const fetchNotificationsCount = async () => {
-    try {
-      const response = await api.get('/api/journal/notifications/count', {
-        timeout: 10000
-      });
-      
-      if (response.data.success) {
-        setNotificationsCount(response.data.count || 0);
-      }
-    } catch (error) {
-      console.warn('⚠️ Impossible de charger les notifications:', error);
-      setNotificationsCount(0);
-    }
-  };
-
-  // ✅ Gestion du clic sur Accueil
   const handleAccueilClick = async (e: React.MouseEvent) => {
     if (location.pathname === "/home" || location.pathname === "/dashboard") {
       e.preventDefault();
       
-      // Journaliser le refresh manuel
       await journalApi.logAction(
         'REFRESH_ACCUEIL', 
         'Rafraîchissement manuel de la page d\'accueil'
@@ -91,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     const newState = !isMenuOpen;
     setIsMenuOpen(newState);
     
-    // Journaliser l'ouverture/fermeture du menu mobile
     if (newState) {
       await journalApi.logAction(
         'MENU_MOBILE_OUVERT', 
@@ -107,12 +75,14 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     return location.pathname === path;
   };
 
-  const handleLogout = async () => {
-    // ⚠️ Récupérer les infos AVANT de nettoyer le localStorage
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirmed = async () => {
     const userId = localStorage.getItem("userId");
     const nomUtilisateur = localStorage.getItem("nomUtilisateur");
     
-    // ✅ Nettoyage complet du localStorage
     const itemsToRemove = [
       "token", "role", "Role", 
       "NomUtilisateur", "nomUtilisateur",
@@ -125,47 +95,28 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     itemsToRemove.forEach(item => localStorage.removeItem(item));
     
     try {
-      // ✅ JOURNALISATION DE LA DÉCONNEXION
       await journalApi.logLogout(nomUtilisateur || userId || 'unknown', true);
-      
       console.log('✅ Déconnexion journalisée avec succès');
     } catch (error) {
       console.warn('⚠️ Journalisation de la déconnexion échouée:', error);
-      // Ne pas bloquer la déconnexion même si la journalisation échoue
     } finally {
-      // ✅ Redirection vers la page de connexion
+      setShowLogoutConfirm(false);
       navigate("/");
     }
   };
 
-  // ✅ Gestion du clic sur le lien Journal
   const handleJournalClick = async (e: React.MouseEvent) => {
-    // Journaliser l'accès au journal
     await journalApi.logAction(
       'ACCES_JOURNAL', 
       'Accès à la page du journal d\'activité'
     );
     
-    // Réinitialiser le compteur de notifications si on clique sur le lien
-    if (notificationsCount > 0) {
-      setNotificationsCount(0);
-      try {
-        await api.post('/api/journal/notifications/mark-as-read', {}, {
-          timeout: 10000
-        });
-      } catch (error) {
-        console.warn('⚠️ Impossible de marquer les notifications comme lues:', error);
-      }
-    }
-    
-    // Si on est déjà sur la page journal, rafraîchir
     if (location.pathname === "/journal") {
       e.preventDefault();
       window.location.reload();
     }
   };
 
-  // ✅ Gestion du clic sur Recherche
   const handleRechercheClick = async () => {
     await journalApi.logAction(
       'ACCES_RECHERCHE', 
@@ -173,7 +124,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     );
   };
 
-  // ✅ Gestion du clic sur Tableau de bord
   const handleDashboardClick = async () => {
     await journalApi.logAction(
       'ACCES_DASHBOARD', 
@@ -181,7 +131,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     );
   };
 
-  // ✅ Gestion du clic sur Profil
   const handleProfilClick = async () => {
     await journalApi.logAction(
       'ACCES_PROFIL', 
@@ -189,12 +138,20 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     );
   };
 
-  // ✅ CONFIGURATION DES ACCÈS PAR RÔLE
-  const canAccessDashboard = ["Administrateur", "Superviseur"].includes(userRole);
-  const canAccessJournal = true; // Tous les rôles ont accès au journal
-  const canAccessProfil = true; // Tous les rôles ont accès au profil
+  const handleGestionComptesClick = async () => {
+    await journalApi.logAction(
+      'ACCES_GESTION_COMPTES', 
+      'Accès à la page de gestion des comptes'
+    );
+  };
 
-  // ✅ Navigation items avec gestion des clics
+  // ✅ CONFIGURATION DES ACCÈS PAR RÔLE - MODIFIÉ ICI
+  const canAccessDashboard = ["Administrateur", "Superviseur"].includes(userRole);
+  const canAccessJournal = ["Administrateur"].includes(userRole); // ← UNIQUEMENT ADMIN
+  const canAccessProfil = true;
+  const canAccessGestionComptes = ["Administrateur"].includes(userRole);
+
+  // ✅ Navigation items
   const navItems = [
     {
       path: "/home",
@@ -229,9 +186,17 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       icon: "📝",
       color: "from-purple-500 to-indigo-600",
       hoverColor: "hover:bg-purple-50 hover:text-purple-600",
-      accessible: canAccessJournal,
-      onClick: handleJournalClick,
-      notificationCount: notificationsCount
+      accessible: canAccessJournal, // ← Contrôlé par canAccessJournal
+      onClick: handleJournalClick
+    },
+    {
+      path: "/gestion-comptes",
+      label: "Gestion des Comptes",
+      icon: "👥",
+      color: "from-purple-600 to-indigo-700",
+      hoverColor: "hover:bg-purple-50 hover:text-purple-600",
+      accessible: canAccessGestionComptes,
+      onClick: handleGestionComptesClick
     },
     {
       path: "/profil",
@@ -244,13 +209,11 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     }
   ];
 
-  // ✅ Récupérer le prénom pour l'affichage
   const getFirstName = () => {
     const nomComplet = localStorage.getItem("nomComplet") || localStorage.getItem("NomComplet") || "";
     return nomComplet.split(' ')[0] || "Utilisateur";
   };
 
-  // ✅ Obtenir le nom de l'agence formaté
   const getFormattedAgence = () => {
     const agence = localStorage.getItem("agence") || localStorage.getItem("Agence") || "";
     if (agence.length > 15) {
@@ -259,7 +222,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     return agence || "Non spécifiée";
   };
 
-  // ✅ Classes dynamiques pour la navbar
   const navbarClasses = `
     fixed top-0 left-0 right-0 z-50 
     transition-all duration-300 ease-in-out
@@ -278,9 +240,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
-            {/* Logo et titre - Responsive amélioré */}
+            {/* Logo */}
             <div className="flex items-center flex-shrink-0 gap-2 md:gap-3">
-              {/* Logo */}
               <div className="relative">
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-orangeMain to-blueMain rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
                   <span className="text-white text-sm md:text-base">🎴</span>
@@ -288,7 +249,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                 <div className="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-greenMain rounded-full border border-white animate-pulse"></div>
               </div>
               
-              {/* Titre */}
               <div className="text-left">
                 <span className={`font-bold bg-gradient-to-r from-orangeMain to-blueMain bg-clip-text text-transparent ${
                   isMobile ? 'text-sm' : 'text-base md:text-lg lg:text-xl'
@@ -303,7 +263,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               </div>
             </div>
 
-            {/* Indicateur de rôle - Desktop seulement */}
+            {/* Indicateur de rôle */}
             {!isMobile && (
               <div className="hidden md:flex items-center mx-3 lg:mx-4 px-3 py-1 bg-gradient-to-r from-orangeMain/10 to-blueMain/10 rounded-full border border-orangeMain/20">
                 <span className="text-xs font-semibold text-orangeMain">
@@ -312,48 +272,41 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               </div>
             )}
 
-            {/* Menu de navigation - Desktop */}
+            {/* Menu Desktop */}
             <div className="hidden md:flex items-center space-x-1 lg:space-x-3 flex-1 justify-center">
-              {navItems.filter(item => item.accessible).map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={item.onClick}
-                  className={`relative px-3 lg:px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-sm lg:text-base ${
-                    isActiveLink(item.path)
-                      ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
-                      : `text-gray-700 ${item.hoverColor}`
-                  }`}
-                  aria-current={isActiveLink(item.path) ? "page" : undefined}
-                >
-                  <span className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="text-base">{item.icon}</span>
-                    <span>{item.label}</span>
-                    
-                    {/* Badge de notification pour le Journal */}
-                    {item.notificationCount && item.notificationCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                        {item.notificationCount > 9 ? '9+' : item.notificationCount}
-                      </span>
+              {navItems
+                .filter(item => item.accessible)
+                .map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={item.onClick}
+                    className={`relative px-3 lg:px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-sm lg:text-base whitespace-nowrap ${
+                      isActiveLink(item.path)
+                        ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
+                        : `text-gray-700 ${item.hoverColor}`
+                    }`}
+                    aria-current={isActiveLink(item.path) ? "page" : undefined}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-base">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </span>
+                    {isActiveLink(item.path) && (
+                      <motion.div
+                        layoutId="navbar-indicator"
+                        className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2/3 h-0.5 bg-white rounded-full"
+                      />
                     )}
-                  </span>
-                  {isActiveLink(item.path) && (
-                    <motion.div
-                      layoutId="navbar-indicator"
-                      className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2/3 h-0.5 bg-white rounded-full"
-                    />
-                  )}
-                </Link>
-              ))}
+                  </Link>
+                ))}
               
-              {/* Bouton Déconnexion - Desktop */}
               <motion.button
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-3 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold shadow hover:shadow-lg transition-all duration-300 ml-1 lg:ml-2"
                 title="Déconnexion"
-                aria-label="Déconnexion"
               >
                 <span className="flex items-center gap-2">
                   <span>🚪</span>
@@ -362,27 +315,23 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               </motion.button>
             </div>
 
-            {/* Menu Burger et info mobile */}
+            {/* Menu Mobile */}
             <div className="flex items-center gap-2 md:hidden">
-              {/* Indicateur de rôle - Mobile */}
               <div className="px-2 py-1 bg-gradient-to-r from-orangeMain/10 to-blueMain/10 rounded-full border border-orangeMain/20">
                 <span className="text-xs font-semibold text-orangeMain">
                   {userRole.length > 8 ? userRole.substring(0, 6) + '...' : userRole}
                 </span>
               </div>
               
-              {/* Bouton déconnexion mobile */}
               <motion.button
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
                 whileTap={{ scale: 0.95 }}
                 className="p-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
                 title="Déconnexion"
-                aria-label="Déconnexion"
               >
                 <span className="text-base">🚪</span>
               </motion.button>
               
-              {/* Menu burger */}
               <motion.button
                 onClick={toggleMenu}
                 whileTap={{ scale: 0.95 }}
@@ -391,8 +340,6 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     ? 'bg-gradient-to-r from-orangeMain to-orangeSecondary text-white' 
                     : 'bg-gradient-to-r from-blueMain to-greenMain text-white'
                 }`}
-                aria-label={isMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
-                aria-expanded={isMenuOpen}
               >
                 <div className="w-6 h-6 flex items-center justify-center">
                   {isMenuOpen ? '✕' : '☰'}
@@ -402,7 +349,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
           </div>
         </div>
 
-        {/* OVERLAY FONCÉ POUR LE MENU MOBILE */}
+        {/* Overlay Mobile */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -415,7 +362,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
           )}
         </AnimatePresence>
 
-        {/* Menu Mobile - CORRECTION : FOND SOLIDE */}
+        {/* Menu Mobile */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -424,63 +371,49 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               exit={{ opacity: 0, y: -20, height: 0 }}
               className="md:hidden bg-white shadow-2xl border-t border-gray-200 absolute top-full left-0 right-0 overflow-hidden z-50"
               style={{ maxHeight: "calc(100vh - 56px)" }}
-              aria-label="Menu de navigation mobile"
             >
               <div className="py-2 px-2 space-y-1 max-h-[70vh] overflow-y-auto">
-                {navItems.filter(item => item.accessible).map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={(e) => {
-                      if (item.onClick) item.onClick(e);
-                      setIsMenuOpen(false);
-                    }}
-                    className={`block px-4 py-3 rounded-xl transition-all duration-300 font-semibold text-sm relative ${
-                      isActiveLink(item.path)
-                        ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
-                        : `text-gray-700 bg-gray-50 hover:bg-gray-100`
-                    }`}
-                    aria-current={isActiveLink(item.path) ? "page" : undefined}
-                  >
-                    <span className="flex items-center justify-between">
-                      <span className="flex items-center gap-3">
-                        <span className="text-lg">{item.icon}</span>
-                        <span>{item.label}</span>
-                      </span>
-                      
-                      {/* Badge de notification mobile */}
-                      {item.notificationCount && item.notificationCount > 0 && (
-                        <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                          {item.notificationCount > 9 ? '9+' : item.notificationCount}
+                {navItems
+                  .filter(item => item.accessible)
+                  .map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={(e) => {
+                        if (item.onClick) item.onClick(e);
+                        setIsMenuOpen(false);
+                      }}
+                      className={`block px-4 py-3 rounded-xl transition-all duration-300 font-semibold text-sm relative ${
+                        isActiveLink(item.path)
+                          ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
+                          : `text-gray-700 bg-gray-50 hover:bg-gray-100`
+                      }`}
+                    >
+                      <span className="flex items-center justify-between">
+                        <span className="flex items-center gap-3">
+                          <span className="text-lg">{item.icon}</span>
+                          <span>{item.label}</span>
                         </span>
-                      )}
-                      
-                      {isActiveLink(item.path) && (
-                        <motion.div
-                          layoutId="mobile-navbar-indicator"
-                          className="w-2 h-2 bg-white rounded-full"
-                        />
-                      )}
-                    </span>
-                  </Link>
-                ))}
+                        
+                        {isActiveLink(item.path) && (
+                          <motion.div
+                            layoutId="mobile-navbar-indicator"
+                            className="w-2 h-2 bg-white rounded-full"
+                          />
+                        )}
+                      </span>
+                    </Link>
+                  ))}
                 
-                {/* ✅ Informations utilisateur améliorées */}
+                {/* Info utilisateur */}
                 <div className="border-t border-gray-200 my-2 pt-2">
                   <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-blue-50 rounded-xl">
-                    <div className="text-xs text-gray-600 mb-1">
-                      Connecté en tant que
-                    </div>
+                    <div className="text-xs text-gray-600 mb-1">Connecté en tant que</div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-orangeMain">
-                        {userRole}
-                      </div>
-                      <div className="text-xs text-blueMain font-medium">
-                        {getFirstName()}
-                      </div>
+                      <div className="font-semibold text-orangeMain">{userRole}</div>
+                      <div className="text-xs text-blueMain font-medium">{getFirstName()}</div>
                     </div>
                     
-                    {/* ✅ Informations supplémentaires */}
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-white/90 rounded-lg p-2 text-center">
                         <div className="text-gray-500">Agence</div>
@@ -496,7 +429,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                   </div>
                 </div>
                 
-                {/* ✅ Actions rapides */}
+                {/* Actions rapides */}
                 <div className="px-4 py-2">
                   <div className="text-xs text-gray-500 mb-2">Actions rapides</div>
                   <div className="grid grid-cols-2 gap-2">
@@ -524,31 +457,45 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     </motion.button>
                   </div>
                   
-                  {/* Bouton Journal avec notifications */}
-                  <motion.button
-                    onClick={async (e) => {
-                      await handleJournalClick(e);
-                      if (!(e as any).defaultPrevented) {
-                        navigate("/journal");
+                  {/* Bouton Journal (seulement si admin) */}
+                  {canAccessJournal && (
+                    <motion.button
+                      onClick={async (e) => {
+                        await handleJournalClick(e);
+                        if (!(e as any).defaultPrevented) {
+                          navigate("/journal");
+                          setIsMenuOpen(false);
+                        }
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full mt-2 bg-gradient-to-r from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-purple-600 text-sm font-medium">📝 Journal</span>
+                      </div>
+                    </motion.button>
+                  )}
+                  
+                  {/* Bouton Gestion des Comptes (seulement si admin) */}
+                  {canAccessGestionComptes && (
+                    <motion.button
+                      onClick={async () => {
+                        await handleGestionComptesClick();
+                        navigate("/gestion-comptes");
                         setIsMenuOpen(false);
-                      }
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full mt-2 bg-gradient-to-r from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-purple-600 text-sm font-medium">📝 Journal</span>
-                      {notificationsCount > 0 && (
-                        <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                          {notificationsCount > 9 ? '9+' : notificationsCount}
-                        </span>
-                      )}
-                    </div>
-                  </motion.button>
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full mt-2 bg-gradient-to-r from-purple-600/10 to-indigo-700/10 border border-purple-600/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-purple-700 text-sm font-medium">👥 Gestion Comptes</span>
+                      </div>
+                    </motion.button>
+                  )}
                 </div>
               </div>
               
-              {/* ✅ Pied de menu mobile amélioré */}
+              {/* Pied de menu */}
               <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
                 <div className="text-center space-y-1">
                   <div className="text-xs text-gray-600 font-medium">COORDINATION ABIDJAN NORD-COCODY</div>
@@ -562,8 +509,62 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
         </AnimatePresence>
       </nav>
       
-      {/* ✅ Espace pour la navbar fixe avec hauteur dynamique */}
       <div className={`${isMobile ? 'h-14' : 'h-16'}`}></div>
+
+      {/* Modal de déconnexion */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+              onClick={() => setShowLogoutConfirm(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-auto border border-red-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-xl flex items-center justify-center">
+                    <span className="text-white text-xl">🚪</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">Confirmer la déconnexion</h3>
+                </div>
+                
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Êtes-vous sûr de vouloir vous déconnecter ? 
+                  Vous devrez vous reconnecter pour accéder à nouveau à l'application.
+                </p>
+                
+                <div className="flex justify-end gap-3">
+                  <motion.button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
+                  >
+                    Annuler
+                  </motion.button>
+                  <motion.button
+                    onClick={handleLogoutConfirmed}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg flex items-center gap-3"
+                  >
+                    <span>🚪</span>
+                    Déconnexion
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };

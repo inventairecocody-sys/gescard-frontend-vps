@@ -98,8 +98,43 @@ const Journal: React.FC = () => {
     const userRole = localStorage.getItem("role") || localStorage.getItem("Role") || "Operateur";
     const isAdmin = userRole === 'Administrateur';
 
+    // 🔧 FONCTION DE NORMALISATION DES DONNÉES
+    const normalizeJournalEntry = (entry: any): JournalEntry => {
+        return {
+            JournalID: entry.JournalID || entry.journalid || entry.id || 0,
+            UtilisateurID: entry.UtilisateurID || entry.utilisateurid || entry.userId || 0,
+            NomUtilisateur: entry.NomUtilisateur || entry.nomutilisateur || entry.username || 'Inconnu',
+            NomComplet: entry.NomComplet || entry.nomcomplet || entry.fullName || 'Inconnu',
+            Role: entry.Role || entry.role || entry.RoleUtilisateur || 'Inconnu',
+            Agence: entry.Agence || entry.agence || 'Inconnu',
+            DateAction: entry.DateAction || entry.dateaction || entry.createdAt || new Date().toISOString(),
+            Action: entry.Action || entry.action || '',
+            TableAffectee: entry.TableAffectee || entry.tableaffectee || '',
+            LigneAffectee: entry.LigneAffectee || entry.ligneaffectee || '',
+            IPUtilisateur: entry.IPUtilisateur || entry.iputilisateur || entry.AdresseIP || '',
+            Systeme: entry.Systeme || entry.systeme || '',
+            UserName: entry.UserName || entry.username || '',
+            RoleUtilisateur: entry.RoleUtilisateur || entry.roleutilisateur || entry.Role || '',
+            ActionType: entry.ActionType || entry.actiontype || 'UNKNOWN',
+            TableName: entry.TableName || entry.tablename || entry.TableAffectee || '',
+            RecordId: entry.RecordId || entry.recordid || entry.LigneAffectee || '',
+            OldValue: entry.OldValue || entry.oldvalue || '',
+            NewValue: entry.NewValue || entry.newvalue || '',
+            AdresseIP: entry.AdresseIP || entry.adresseip || entry.IPUtilisateur || '',
+            UserId: entry.UserId || entry.userid || entry.UtilisateurID || 0,
+            ImportBatchID: entry.ImportBatchID || entry.importbatchid,
+            DetailsAction: entry.DetailsAction || entry.detailsaction || entry.Action || ''
+        };
+    };
+
+    // 🔧 FORMATER LE TYPE D'ACTION (SÉCURISÉ)
+    const formatActionType = (actionType: string | undefined): string => {
+        return (actionType || 'UNKNOWN').replace(/_/g, ' ');
+    };
+
     // 🎨 CONFIGURATION DES COULEURS PAR TYPE D'ACTION
-    const getActionColor = (actionType: string) => {
+    const getActionColor = (actionType: string | undefined) => {
+        const type = actionType || 'UNKNOWN';
         const colors: { [key: string]: string } = {
             'IMPORT_CARTE': 'bg-green-500',
             'CREATION_CARTE': 'bg-green-500',
@@ -117,12 +152,14 @@ const Journal: React.FC = () => {
             'CONNEXION': 'bg-gray-500',
             'DECONNEXION': 'bg-gray-400',
             'ANNULATION': 'bg-yellow-500',
-            'ANNULATION_MANUEL': 'bg-yellow-600'
+            'ANNULATION_MANUEL': 'bg-yellow-600',
+            'UNKNOWN': 'bg-gray-300'
         };
-        return colors[actionType] || 'bg-gray-500';
+        return colors[type] || 'bg-gray-500';
     };
 
-    const getActionIcon = (actionType: string) => {
+    const getActionIcon = (actionType: string | undefined) => {
+        const type = actionType || 'UNKNOWN';
         const icons: { [key: string]: string } = {
             'IMPORT_CARTE': '📤',
             'CREATION_CARTE': '👤',
@@ -140,59 +177,142 @@ const Journal: React.FC = () => {
             'CONNEXION': '🔐',
             'DECONNEXION': '🚪',
             'ANNULATION': '↩️',
-            'ANNULATION_MANUEL': '↩️'
+            'ANNULATION_MANUEL': '↩️',
+            'UNKNOWN': '📝'
         };
-        return icons[actionType] || '📝';
+        return icons[type] || '📝';
     };
 
-    // ✅ FONCTION FETCH LOGS
+    // ✅ FONCTION FETCH LOGS (CORRIGÉE)
     const fetchLogs = async (page: number = 1) => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
                 page: page.toString(),
                 pageSize: pagination.pageSize.toString(),
-                ...filters
+                ...Object.entries(filters).reduce((acc, [key, value]) => {
+                    if (value) acc[key] = value;
+                    return acc;
+                }, {} as Record<string, string>)
             });
 
             const response = await api.get(`/api/journal?${queryParams}`);
-            setLogs(response.data.logs);
-            setPagination(response.data.pagination);
-        } catch (error) {
-            console.error('Erreur chargement journal:', error);
-            alert('Erreur lors du chargement du journal');
+            
+            // NORMALISATION DES DONNÉES
+            const normalizedLogs = Array.isArray(response.data.logs) 
+                ? response.data.logs.map(normalizeJournalEntry)
+                : Array.isArray(response.data) 
+                    ? response.data.map(normalizeJournalEntry)
+                    : [];
+            
+            setLogs(normalizedLogs);
+            
+            // GESTION DE LA PAGINATION
+            if (response.data.pagination) {
+                setPagination(response.data.pagination);
+            } else if (response.data.total !== undefined) {
+                setPagination({
+                    page: response.data.page || page,
+                    pageSize: response.data.pageSize || pagination.pageSize,
+                    total: response.data.total || normalizedLogs.length,
+                    totalPages: response.data.totalPages || Math.ceil((response.data.total || normalizedLogs.length) / pagination.pageSize)
+                });
+            }
+            
+            console.log(`📊 Journal chargé: ${normalizedLogs.length} entrées`);
+            
+        } catch (error: any) {
+            console.error('❌ Erreur chargement journal:', error);
+            
+            // Message d'erreur plus informatif
+            let errorMessage = 'Erreur lors du chargement du journal';
+            if (error.response?.status === 404) {
+                errorMessage = 'Endpoint journal non trouvé. Vérifiez la configuration backend.';
+            } else if (error.response?.status === 403) {
+                errorMessage = 'Accès refusé. Vous n\'avez pas les permissions nécessaires.';
+            } else if (error.message?.includes('Network') || error.message?.includes('network')) {
+                errorMessage = 'Erreur réseau. Vérifiez votre connexion au serveur.';
+            } else if (error.code === 'ECONNABORTED') {
+                errorMessage = 'Timeout du serveur. Le serveur met trop de temps à répondre.';
+            }
+            
+            alert(errorMessage);
+            
+            // Définir des données vides en cas d'erreur
+            setLogs([]);
+            setPagination({
+                page: 1,
+                pageSize: 50,
+                total: 0,
+                totalPages: 0
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    // ✅ FONCTION FETCH IMPORTS
+    // ✅ FONCTION FETCH IMPORTS (CORRIGÉE)
     const fetchImports = async () => {
         setImportsLoading(true);
         try {
             const response = await api.get('/api/journal/imports');
-            setImports(response.data);
-        } catch (error) {
-            console.error('Erreur chargement imports:', error);
-            alert('Erreur lors du chargement des imports');
+            
+            // Assurer que nous avons toujours un tableau
+            const importsData = Array.isArray(response.data) ? response.data : 
+                               Array.isArray(response.data.imports) ? response.data.imports : 
+                               [];
+            
+            setImports(importsData);
+            console.log(`📦 Imports chargés: ${importsData.length} batchs`);
+        } catch (error: any) {
+            console.error('❌ Erreur chargement imports:', error);
+            
+            let errorMessage = 'Erreur lors du chargement des imports';
+            if (error.response?.status === 404) {
+                console.warn('Endpoint imports non disponible');
+                setImports([]); // Définir tableau vide si endpoint non trouvé
+                return;
+            }
+            
+            alert(errorMessage);
+            setImports([]);
         } finally {
             setImportsLoading(false);
         }
     };
 
-    // ✅ FONCTION FETCH BACKUPS
+    // ✅ FONCTION FETCH BACKUPS (CORRIGÉE)
     const fetchBackups = async () => {
         setBackupsLoading(true);
         try {
             const response = await api.get('/api/backup/list');
-            setBackups(response.data.backups);
             
-            // Récupérer les statistiques
-            const statsResponse = await api.get('/api/backup/stats');
-            setBackupStats(statsResponse.data.stats);
-        } catch (error) {
-            console.error('Erreur chargement backups:', error);
-            setBackups([]);
+            // Gestion robuste des données de backup
+            const backupsData = response.data?.backups || response.data || [];
+            setBackups(Array.isArray(backupsData) ? backupsData : []);
+            
+            // Récupérer les statistiques (si disponibles)
+            try {
+                const statsResponse = await api.get('/api/backup/stats');
+                setBackupStats(statsResponse.data?.stats || statsResponse.data || null);
+            } catch (statsError) {
+                console.warn('⚠️ Statistiques backup non disponibles:', statsError);
+                setBackupStats(null);
+            }
+            
+            console.log(`💾 Backups chargés: ${backupsData.length} fichiers`);
+            
+        } catch (error: any) {
+            console.error('❌ Erreur chargement backups:', error);
+            
+            if (error.response?.status === 404) {
+                console.warn('Endpoint backup non disponible - fonctionnalité désactivée');
+                setBackups([]);
+                setBackupStats(null);
+            } else {
+                alert('Erreur lors du chargement des sauvegardes');
+                setBackups([]);
+            }
         } finally {
             setBackupsLoading(false);
         }
@@ -271,25 +391,36 @@ const Journal: React.FC = () => {
             const response = await api.post('/api/backup/download', { backupId });
             
             // Créer un lien de téléchargement
-            const downloadUrl = response.data.links.download;
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.click();
+            const downloadUrl = response.data.links?.download || response.data.downloadUrl;
+            if (downloadUrl) {
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.download = backupName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                throw new Error('URL de téléchargement non disponible');
+            }
             
             // Journaliser le téléchargement
-            await api.post('/api/journal/log', {
-                actionType: 'BACKUP_DOWNLOAD',
-                details: `Téléchargement du backup: ${backupName}`,
-                utilisateurId: localStorage.getItem("userId"),
-                nomUtilisateur: localStorage.getItem("nomUtilisateur"),
-                role: userRole
-            });
+            try {
+                await api.post('/api/journal/log', {
+                    actionType: 'BACKUP_DOWNLOAD',
+                    details: `Téléchargement du backup: ${backupName}`,
+                    utilisateurId: localStorage.getItem("userId"),
+                    nomUtilisateur: localStorage.getItem("nomUtilisateur"),
+                    role: userRole
+                });
+            } catch (logError) {
+                console.warn('⚠️ Impossible de journaliser le téléchargement:', logError);
+            }
             
         } catch (error) {
-            console.error('Erreur téléchargement:', error);
-            alert('❌ Erreur lors du téléchargement');
+            console.error('❌ Erreur téléchargement:', error);
+            alert('❌ Erreur lors du téléchargement du backup');
         }
     };
 
@@ -342,7 +473,11 @@ const Journal: React.FC = () => {
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString('fr-FR');
+        try {
+            return new Date(dateString).toLocaleString('fr-FR');
+        } catch (error) {
+            return dateString || 'Date inconnue';
+        }
     };
 
     const handleResetFilters = () => {
@@ -353,6 +488,20 @@ const Journal: React.FC = () => {
             actionType: '',
             tableName: ''
         });
+    };
+
+    // 🔧 FORMATER LES VALEURS JSON POUR L'AFFICHAGE
+    const formatJsonValue = (value: string | undefined) => {
+        if (!value) return 'Aucune';
+        
+        try {
+            // Essayer de parser comme JSON
+            const parsed = JSON.parse(value);
+            return JSON.stringify(parsed, null, 2);
+        } catch {
+            // Si ce n'est pas du JSON, retourner la valeur telle quelle
+            return value;
+        }
     };
 
     return (
@@ -626,18 +775,18 @@ const Journal: React.FC = () => {
                                                             <div className="flex items-center gap-2">
                                                                 <span className={`w-2 h-2 rounded-full ${getActionColor(log.ActionType)}`}></span>
                                                                 <span className="font-medium text-gray-700">
-                                                                    {getActionIcon(log.ActionType)} {log.ActionType.replace(/_/g, ' ')}
+                                                                    {getActionIcon(log.ActionType)} {formatActionType(log.ActionType)}
                                                                 </span>
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                                                                {log.TableName || log.TableAffectee}
+                                                                {log.TableName || log.TableAffectee || 'Inconnue'}
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <div className="text-gray-600 truncate max-w-xs" title={log.DetailsAction}>
-                                                                {log.DetailsAction || log.Action}
+                                                                {log.DetailsAction || log.Action || 'Aucun détail'}
                                                             </div>
                                                         </td>
                                                         {isAdmin && (
@@ -652,7 +801,7 @@ const Journal: React.FC = () => {
                                                                         <span>📋</span>
                                                                         Détails
                                                                     </motion.button>
-                                                                    {(log.ActionType.includes('CREATION') || log.ActionType.includes('MODIFICATION') || log.ActionType.includes('SUPPRESSION')) && (
+                                                                    {(log.ActionType?.includes('CREATION') || log.ActionType?.includes('MODIFICATION') || log.ActionType?.includes('SUPPRESSION')) && (
                                                                         <motion.button
                                                                             onClick={() => handleUndo(log.JournalID)}
                                                                             whileHover={{ scale: 1.05 }}
@@ -677,7 +826,7 @@ const Journal: React.FC = () => {
                                                                         <h4 className="font-bold text-gray-700 mb-2">📋 Informations de base</h4>
                                                                         <div className="space-y-2 text-sm">
                                                                             <div><span className="font-medium">ID:</span> {log.JournalID}</div>
-                                                                            <div><span className="font-medium">ID Ligne:</span> {log.RecordId || log.LigneAffectee}</div>
+                                                                            <div><span className="font-medium">ID Ligne:</span> {log.RecordId || log.LigneAffectee || 'N/A'}</div>
                                                                             <div><span className="font-medium">Batch Import:</span> {log.ImportBatchID || 'N/A'}</div>
                                                                         </div>
                                                                     </div>
@@ -685,9 +834,9 @@ const Journal: React.FC = () => {
                                                                     <div>
                                                                         <h4 className="font-bold text-gray-700 mb-2">👤 Utilisateur</h4>
                                                                         <div className="space-y-2 text-sm">
-                                                                            <div><span className="font-medium">Rôle:</span> <span className="px-2 py-1 bg-gray-100 rounded text-xs">{log.Role || log.RoleUtilisateur}</span></div>
-                                                                            <div><span className="font-medium">IP:</span> {log.AdresseIP || log.IPUtilisateur}</div>
-                                                                            <div><span className="font-medium">Système:</span> {log.Systeme}</div>
+                                                                            <div><span className="font-medium">Rôle:</span> <span className="px-2 py-1 bg-gray-100 rounded text-xs">{log.Role || log.RoleUtilisateur || 'Inconnu'}</span></div>
+                                                                            <div><span className="font-medium">IP:</span> {log.AdresseIP || log.IPUtilisateur || 'Inconnue'}</div>
+                                                                            <div><span className="font-medium">Système:</span> {log.Systeme || 'Inconnu'}</div>
                                                                         </div>
                                                                     </div>
                                                                     
@@ -697,13 +846,13 @@ const Journal: React.FC = () => {
                                                                             <div>
                                                                                 <span className="font-medium">Ancienne valeur:</span>
                                                                                 <div className="mt-1 p-2 bg-gray-100 rounded text-xs font-mono overflow-x-auto">
-                                                                                    {log.OldValue ? JSON.stringify(JSON.parse(log.OldValue), null, 2) : 'Aucune'}
+                                                                                    {formatJsonValue(log.OldValue)}
                                                                                 </div>
                                                                             </div>
                                                                             <div>
                                                                                 <span className="font-medium">Nouvelle valeur:</span>
                                                                                 <div className="mt-1 p-2 bg-gray-100 rounded text-xs font-mono overflow-x-auto">
-                                                                                    {log.NewValue ? JSON.stringify(JSON.parse(log.NewValue), null, 2) : 'Aucune'}
+                                                                                    {formatJsonValue(log.NewValue)}
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -835,25 +984,25 @@ const Journal: React.FC = () => {
                                             <tr key={imp.ImportBatchID} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <div className="font-mono text-sm font-medium text-gray-800">
-                                                        {imp.ImportBatchID}
+                                                        {imp.ImportBatchID || 'N/A'}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className="text-gray-700">{formatDate(imp.dateImport)}</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-medium text-gray-800">{imp.NomComplet}</div>
-                                                    <div className="text-xs text-gray-500">@{imp.NomUtilisateur}</div>
+                                                    <div className="font-medium text-gray-800">{imp.NomComplet || 'Inconnu'}</div>
+                                                    <div className="text-xs text-gray-500">@{imp.NomUtilisateur || 'inconnu'}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                                                        {imp.Agence}
+                                                        {imp.Agence || 'Inconnue'}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-lg">🃏</span>
-                                                        <span className="font-bold text-lg text-blue-600">{imp.nombreCartes}</span>
+                                                        <span className="font-bold text-lg text-blue-600">{imp.nombreCartes || 0}</span>
                                                         <span className="text-sm text-gray-500">cartes</span>
                                                     </div>
                                                 </td>
@@ -909,20 +1058,22 @@ const Journal: React.FC = () => {
                         {backupStats && (
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl p-6 shadow-lg">
-                                    <div className="text-3xl font-bold mb-2">{backupStats.total_backups}</div>
+                                    <div className="text-3xl font-bold mb-2">{backupStats.total_backups || 0}</div>
                                     <div className="text-sm opacity-90">Sauvegardes totales</div>
                                 </div>
                                 <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl p-6 shadow-lg">
-                                    <div className="text-3xl font-bold mb-2">{backupStats.sql_backups}</div>
+                                    <div className="text-3xl font-bold mb-2">{backupStats.sql_backups || 0}</div>
                                     <div className="text-sm opacity-90">Backups SQL</div>
                                 </div>
                                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl p-6 shadow-lg">
-                                    <div className="text-3xl font-bold mb-2">{backupStats.json_backups}</div>
+                                    <div className="text-3xl font-bold mb-2">{backupStats.json_backups || 0}</div>
                                     <div className="text-sm opacity-90">Backups JSON</div>
                                 </div>
                                 <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl p-6 shadow-lg">
                                     <div className="text-lg font-bold mb-2">
-                                        {backupStats.last_backup === 'jamais' ? 'Jamais' : new Date(backupStats.last_backup).toLocaleDateString('fr-FR')}
+                                        {backupStats.last_backup === 'jamais' || !backupStats.last_backup 
+                                            ? 'Jamais' 
+                                            : new Date(backupStats.last_backup).toLocaleDateString('fr-FR')}
                                     </div>
                                     <div className="text-sm opacity-90">Dernier backup</div>
                                 </div>
@@ -1023,7 +1174,7 @@ const Journal: React.FC = () => {
                                             {backups.map((backup) => (
                                                 <tr key={backup.id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                                                     <td className="px-4 py-3">
-                                                        <div className="font-medium text-gray-800">{backup.name}</div>
+                                                        <div className="font-medium text-gray-800">{backup.name || 'Sans nom'}</div>
                                                         {backup.encrypted && (
                                                             <span className="inline-block mt-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
                                                                 🔐 Chiffré
@@ -1031,7 +1182,7 @@ const Journal: React.FC = () => {
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <span className="text-gray-700">{backup.created}</span>
+                                                        <span className="text-gray-700">{backup.created || 'Date inconnue'}</span>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -1039,11 +1190,11 @@ const Journal: React.FC = () => {
                                                             backup.type === 'JSON' ? 'bg-green-100 text-green-700' :
                                                             'bg-purple-100 text-purple-700'
                                                         }`}>
-                                                            {backup.type}
+                                                            {backup.type || 'INCONNU'}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <span className="text-gray-700">{backup.size}</span>
+                                                        <span className="text-gray-700">{backup.size || 'Inconnue'}</span>
                                                     </td>
                                                     {isAdmin && (
                                                         <td className="px-4 py-3">
