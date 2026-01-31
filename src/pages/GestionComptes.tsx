@@ -5,7 +5,7 @@ import {
   XCircle, Search, RefreshCw, Eye, Key, Building, Calendar
 } from 'lucide-react';
 import { userApi, journalApi } from '../service/api';
-import type { UserType } from '../types'; // ✅ Ajoutez 'type' ici
+import type { UserType } from '../types';
 
 const GestionComptes: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -41,27 +41,59 @@ const GestionComptes: React.FC = () => {
   // Initialiser le formulaire pour l'édition
   const initEditForm = (user: UserType) => {
     setFormData({
-      nomUtilisateur: user.nomUtilisateur,
-      nomComplet: user.nomComplet,
+      nomUtilisateur: user.nomUtilisateur || '',
+      nomComplet: user.nomComplet || '',
       email: user.email || '',
       agence: user.agence || '',
-      role: user.role,
+      role: user.role || 'Operateur',
       motDePasse: '',
       confirmerMotDePasse: ''
     });
+  };
+
+  // Fonction pour nettoyer les données utilisateur
+  const cleanUserData = (user: any): UserType => {
+    return {
+      id: user.id || user.Id || user.userId || Math.random(),
+      nomUtilisateur: user.nomUtilisateur || user.NomUtilisateur || user.username || '',
+      nomComplet: user.nomComplet || user.NomComplet || 'Utilisateur',
+      email: user.email || user.Email || '',
+      agence: user.agence || user.Agence || '',
+      role: user.role || user.Role || 'Operateur',
+      actif: user.actif !== undefined ? user.actif : 
+             user.Actif !== undefined ? user.Actif : 
+             user.isActive !== undefined ? user.isActive : true,
+      dateCreation: user.dateCreation || user.createdAt || user.DateCreation || new Date().toISOString(),
+    };
   };
 
   // Charger les utilisateurs
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await userApi.getAll();
-      setUsers(response.data);
-      calculateStats(response.data);
-      await journalApi.logAction('LOAD_USERS', 'Chargement de la liste des utilisateurs');
+      
+      // DEBUG: Vérifier la structure des données
+      console.log('Données utilisateurs brutes:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Nettoyer et valider les données
+        const cleanedUsers = response.data.map(cleanUserData);
+        console.log('Utilisateurs nettoyés:', cleanedUsers);
+        setUsers(cleanedUsers);
+        calculateStats(cleanedUsers);
+        await journalApi.logAction('LOAD_USERS', 'Chargement de la liste des utilisateurs');
+      } else {
+        console.warn('Les données ne sont pas un tableau:', response.data);
+        setUsers([]);
+        setError('Format de données invalide reçu du serveur');
+      }
     } catch (error: any) {
       console.error('Erreur lors du chargement des utilisateurs:', error);
-      setError(error.response?.data?.message || 'Impossible de charger les utilisateurs');
+      const errorMessage = error.response?.data?.message || 'Impossible de charger les utilisateurs';
+      setError(errorMessage);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -84,12 +116,16 @@ const GestionComptes: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Filtrer les utilisateurs
+  // Filtrer les utilisateurs avec vérifications de sécurité
   const filteredUsers = users.filter(user => {
+    const nomUtilisateur = user.nomUtilisateur || '';
+    const nomComplet = user.nomComplet || '';
+    const email = user.email || '';
+    
     const matchesSearch = searchTerm === '' || 
-      user.nomUtilisateur.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.nomComplet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      nomUtilisateur.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nomComplet.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' || 
@@ -113,15 +149,20 @@ const GestionComptes: React.FC = () => {
       return;
     }
     
+    if (!formData.nomUtilisateur.trim() || !formData.nomComplet.trim()) {
+      setError('Le nom d\'utilisateur et le nom complet sont obligatoires');
+      return;
+    }
+    
     try {
       setError('');
       setSuccess('');
       
       await userApi.create({
-        NomUtilisateur: formData.nomUtilisateur,
-        NomComplet: formData.nomComplet,
-        Email: formData.email,
-        Agence: formData.agence,
+        NomUtilisateur: formData.nomUtilisateur.trim(),
+        NomComplet: formData.nomComplet.trim(),
+        Email: formData.email.trim() || undefined,
+        Agence: formData.agence.trim() || undefined,
         Role: formData.role,
         MotDePasse: formData.motDePasse
       });
@@ -146,15 +187,20 @@ const GestionComptes: React.FC = () => {
     
     if (!selectedUser) return;
     
+    if (!formData.nomComplet.trim()) {
+      setError('Le nom complet est obligatoire');
+      return;
+    }
+    
     try {
       setError('');
       setSuccess('');
       
       // Ne pas envoyer le mot de passe s'il est vide
       const updateData: any = {
-        NomComplet: formData.nomComplet,
-        Email: formData.email,
-        Agence: formData.agence,
+        NomComplet: formData.nomComplet.trim(),
+        Email: formData.email.trim() || undefined,
+        Agence: formData.agence.trim() || undefined,
         Role: formData.role
       };
       
@@ -176,7 +222,7 @@ const GestionComptes: React.FC = () => {
       setSuccess('Utilisateur modifié avec succès');
       await journalApi.logAction(
         'UPDATE_USER', 
-        `Modification de l'utilisateur: ${selectedUser.nomUtilisateur}`
+        `Modification de l'utilisateur: ${selectedUser.nomUtilisateur || 'Inconnu'}`
       );
       
       setShowEditModal(false);
@@ -189,7 +235,8 @@ const GestionComptes: React.FC = () => {
 
   // Supprimer/Désactiver un utilisateur
   const handleDeleteUser = async (user: UserType) => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir ${user.actif ? 'désactiver' : 'réactiver'} ${user.nomComplet} ?`)) {
+    const nomAffichage = user.nomComplet || user.nomUtilisateur || 'Utilisateur';
+    if (!window.confirm(`Êtes-vous sûr de vouloir ${user.actif ? 'désactiver' : 'réactiver'} ${nomAffichage} ?`)) {
       return;
     }
     
@@ -198,16 +245,17 @@ const GestionComptes: React.FC = () => {
         await userApi.delete(user.id);
         await journalApi.logAction(
           'DEACTIVATE_USER', 
-          `Désactivation de l'utilisateur: ${user.nomUtilisateur}`
+          `Désactivation de l'utilisateur: ${user.nomUtilisateur || user.id}`
         );
       } else {
         await userApi.activate(user.id);
         await journalApi.logAction(
           'ACTIVATE_USER', 
-          `Réactivation de l'utilisateur: ${user.nomUtilisateur}`
+          `Réactivation de l'utilisateur: ${user.nomUtilisateur || user.id}`
         );
       }
       
+      setSuccess(`Utilisateur ${user.actif ? 'désactivé' : 'réactivé'} avec succès`);
       fetchUsers();
     } catch (error: any) {
       console.error('Erreur:', error);
@@ -223,7 +271,8 @@ const GestionComptes: React.FC = () => {
       return;
     }
     
-    if (!window.confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe ?')) {
+    const confirmMessage = 'Êtes-vous sûr de vouloir réinitialiser le mot de passe ?';
+    if (!window.confirm(confirmMessage)) {
       return;
     }
     
@@ -271,7 +320,8 @@ const GestionComptes: React.FC = () => {
   };
 
   // Fonction pour formater la date
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleDateString('fr-FR', {
         day: '2-digit',
@@ -281,6 +331,12 @@ const GestionComptes: React.FC = () => {
     } catch {
       return dateString;
     }
+  };
+
+  // Fonction pour obtenir l'initiale sécurisée
+  const getSafeInitial = (name: string | undefined): string => {
+    if (!name || typeof name !== 'string') return '?';
+    return name.charAt(0).toUpperCase();
   };
 
   // Pagination
@@ -299,6 +355,17 @@ const GestionComptes: React.FC = () => {
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
+
+  // Effacer les messages après délai
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6">
@@ -328,8 +395,9 @@ const GestionComptes: React.FC = () => {
               whileTap={{ scale: 0.95 }}
               className="p-2 bg-gradient-to-r from-blueMain to-greenMain text-white rounded-lg hover:shadow-lg transition-shadow"
               title="Actualiser"
+              disabled={loading}
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </motion.button>
             
             <motion.button
@@ -340,6 +408,7 @@ const GestionComptes: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="px-4 py-2 bg-gradient-to-r from-orangeMain to-blueMain text-white rounded-lg font-semibold flex items-center gap-2 hover:shadow-lg transition-shadow"
+              disabled={loading}
             >
               <UserPlus className="w-5 h-5" />
               <span>Nouveau compte</span>
@@ -355,7 +424,12 @@ const GestionComptes: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl"
         >
-          {error}
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
+              ✕
+            </button>
+          </div>
         </motion.div>
       )}
       
@@ -365,7 +439,12 @@ const GestionComptes: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl"
         >
-          {success}
+          <div className="flex items-center justify-between">
+            <span>{success}</span>
+            <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700">
+              ✕
+            </button>
+          </div>
         </motion.div>
       )}
 
@@ -409,6 +488,7 @@ const GestionComptes: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
+                disabled={loading}
               />
             </div>
           </div>
@@ -418,9 +498,10 @@ const GestionComptes: React.FC = () => {
               value={filterRole}
               onChange={(e) => {
                 setFilterRole(e.target.value);
-                setCurrentPage(1); // Réinitialiser à la première page
+                setCurrentPage(1);
               }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
+              disabled={loading}
             >
               <option value="all">Tous les rôles</option>
               <option value="Administrateur">Administrateur</option>
@@ -432,9 +513,10 @@ const GestionComptes: React.FC = () => {
               value={filterStatus}
               onChange={(e) => {
                 setFilterStatus(e.target.value);
-                setCurrentPage(1); // Réinitialiser à la première page
+                setCurrentPage(1);
               }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
+              disabled={loading}
             >
               <option value="all">Tous les statuts</option>
               <option value="active">Actif</option>
@@ -454,7 +536,23 @@ const GestionComptes: React.FC = () => {
         ) : filteredUsers.length === 0 ? (
           <div className="p-8 text-center">
             <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Aucun utilisateur trouvé</p>
+            <p className="text-gray-500">
+              {searchTerm || filterRole !== 'all' || filterStatus !== 'all' 
+                ? 'Aucun utilisateur ne correspond aux critères' 
+                : 'Aucun utilisateur trouvé'}
+            </p>
+            {(searchTerm || filterRole !== 'all' || filterStatus !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterRole('all');
+                  setFilterStatus('all');
+                }}
+                className="mt-3 text-blueMain hover:text-blue-700 text-sm"
+              >
+                Réinitialiser les filtres
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -483,100 +581,107 @@ const GestionComptes: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-r from-blueMain/10 to-greenMain/10 text-blueMain font-semibold mr-3">
-                            {user.nomComplet.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{user.nomComplet}</div>
-                            <div className="text-sm text-gray-500">
-                              @{user.nomUtilisateur}
-                              {user.email && <span className="ml-2">• {user.email}</span>}
+                  {currentUsers.map((user) => {
+                    const nomAffichage = user.nomComplet || user.nomUtilisateur || 'Utilisateur';
+                    const emailAffichage = user.email || '';
+                    const agenceAffichage = user.agence || 'Non spécifiée';
+                    
+                    return (
+                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-r from-blueMain/10 to-greenMain/10 text-blueMain font-semibold mr-3">
+                              {/* CORRECTION ICI : Utilisation de getSafeInitial */}
+                              {getSafeInitial(nomAffichage)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{nomAffichage}</div>
+                              <div className="text-sm text-gray-500">
+                                @{user.nomUtilisateur || 'inconnu'}
+                                {emailAffichage && <span className="ml-2">• {emailAffichage}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                          {getRoleIcon(user.role)}
-                          <span className="ml-1">{user.role}</span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Building className="w-4 h-4 mr-1 text-gray-400" />
-                          {user.agence || 'Non spécifiée'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {user.actif ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Actif
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role || 'Operateur')}`}>
+                            {getRoleIcon(user.role || 'Operateur')}
+                            <span className="ml-1">{user.role || 'Opérateur'}</span>
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Inactif
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-1 text-gray-400" />
-                          {formatDate(user.dateCreation)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          <motion.button
-                            onClick={() => {
-                              setSelectedUser(user);
-                              initEditForm(user);
-                              setShowEditModal(true);
-                            }}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Modifier"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </motion.button>
-                          
-                          <motion.button
-                            onClick={() => handleResetPassword(user.id)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                            title="Réinitialiser mot de passe"
-                          >
-                            <Key className="w-4 h-4" />
-                          </motion.button>
-                          
-                          <motion.button
-                            onClick={() => handleDeleteUser(user)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className={`p-2 rounded-lg transition-colors ${
-                              user.actif 
-                                ? 'text-red-600 hover:bg-red-50' 
-                                : 'text-green-600 hover:bg-green-50'
-                            }`}
-                            title={user.actif ? 'Désactiver' : 'Réactiver'}
-                          >
-                            {user.actif ? (
-                              <Trash2 className="w-4 h-4" />
-                            ) : (
-                              <CheckCircle className="w-4 h-4" />
-                            )}
-                          </motion.button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Building className="w-4 h-4 mr-1 text-gray-400" />
+                            {agenceAffichage}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {user.actif ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Actif
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Inactif
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1 text-gray-400" />
+                            {formatDate(user.dateCreation)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <motion.button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                initEditForm(user);
+                                setShowEditModal(true);
+                              }}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Modifier"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </motion.button>
+                            
+                            <motion.button
+                              onClick={() => handleResetPassword(user.id)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Réinitialiser mot de passe"
+                            >
+                              <Key className="w-4 h-4" />
+                            </motion.button>
+                            
+                            <motion.button
+                              onClick={() => handleDeleteUser(user)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className={`p-2 rounded-lg transition-colors ${
+                                user.actif 
+                                  ? 'text-red-600 hover:bg-red-50' 
+                                  : 'text-green-600 hover:bg-green-50'
+                              }`}
+                              title={user.actif ? 'Désactiver' : 'Réactiver'}
+                            >
+                              {user.actif ? (
+                                <Trash2 className="w-4 h-4" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                            </motion.button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -676,6 +781,7 @@ const GestionComptes: React.FC = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
                       required
                       placeholder="john.doe"
+                      minLength={3}
                     />
                   </div>
                   
@@ -745,6 +851,7 @@ const GestionComptes: React.FC = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
                       required
                       placeholder="●●●●●●●●"
+                      minLength={6}
                     />
                     <p className="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
                   </div>
@@ -760,6 +867,7 @@ const GestionComptes: React.FC = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
                       required
                       placeholder="●●●●●●●●"
+                      minLength={6}
                     />
                   </div>
                 </div>
@@ -891,6 +999,7 @@ const GestionComptes: React.FC = () => {
                           onChange={(e) => setFormData({...formData, motDePasse: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
                           placeholder="●●●●●●●●"
+                          minLength={6}
                         />
                       </div>
                       
@@ -904,6 +1013,7 @@ const GestionComptes: React.FC = () => {
                           onChange={(e) => setFormData({...formData, confirmerMotDePasse: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blueMain focus:border-transparent"
                           placeholder="●●●●●●●●"
+                          minLength={6}
                         />
                       </div>
                     </div>
