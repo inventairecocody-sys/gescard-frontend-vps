@@ -69,19 +69,19 @@ const GestionComptes: React.FC = () => {
     confirmerMotDePasse: ''
   });
 
-  // Fonction pour nettoyer les données utilisateur
+  // Fonction pour nettoyer les données utilisateur - CORRIGÉE
   const cleanUserData = (user: any): UserType => {
+    console.log('Données brutes utilisateur:', user);
+    
     return {
-      id: user.id || user.Id || user.userId || Math.random(),
-      nomUtilisateur: user.nomUtilisateur || user.NomUtilisateur || user.username || '',
-      nomComplet: user.nomComplet || user.NomComplet || 'Utilisateur',
+      id: user.id || Math.random(),
+      nomUtilisateur: user.nomutilisateur || user.nomUtilisateur || user.Nomutilisateur || user.NomUtilisateur || '',
+      nomComplet: user.nomcomplet || user.nomComplet || user.Nomcomplet || user.NomComplet || '',
       email: user.email || user.Email || '',
       agence: user.agence || user.Agence || '',
       role: user.role || user.Role || 'Opérateur',
-      actif: user.actif !== undefined ? user.actif : 
-             user.Actif !== undefined ? user.Actif : 
-             user.isActive !== undefined ? user.isActive : true,
-      dateCreation: user.dateCreation || user.createdAt || user.DateCreation || new Date().toISOString(),
+      actif: user.actif !== undefined ? user.actif : true,
+      dateCreation: user.datecreation || user.dateCreation || user.Datecreation || user.DateCreation || new Date().toISOString(),
     };
   };
 
@@ -92,8 +92,11 @@ const GestionComptes: React.FC = () => {
       setError('');
       const response = await userApi.getAll();
       
+      console.log('Réponse API utilisateurs:', response);
+      
       if (response.data && Array.isArray(response.data)) {
         const cleanedUsers = response.data.map(cleanUserData);
+        console.log('Utilisateurs nettoyés:', cleanedUsers);
         setUsers(cleanedUsers);
         calculateStats(cleanedUsers);
         setEditableUsers({});
@@ -716,7 +719,7 @@ const GestionComptes: React.FC = () => {
                         {/* Nom d'utilisateur */}
                         <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">
-                            @{user.nomUtilisateur || 'inconnu'}
+                            @{user.nomUtilisateur}
                           </div>
                         </td>
                         
@@ -732,7 +735,7 @@ const GestionComptes: React.FC = () => {
                             />
                           ) : (
                             <div className="font-medium text-gray-900">
-                              {user.nomComplet || 'Utilisateur'}
+                              {user.nomComplet}
                             </div>
                           )}
                         </td>
