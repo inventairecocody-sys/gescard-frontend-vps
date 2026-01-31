@@ -19,7 +19,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
   useEffect(() => {
     const checkMobile = () => {
       const width = window.innerWidth;
-      if (width < 768) setIsMobile(true);
+      if (width < 1024) setIsMobile(true); // Changé à 1024 pour tablette
       else setIsMobile(false);
     };
     
@@ -145,65 +145,71 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     );
   };
 
-  // ✅ CONFIGURATION DES ACCÈS PAR RÔLE - MODIFIÉ ICI
+  // ✅ CONFIGURATION DES ACCÈS PAR RÔLE
   const canAccessDashboard = ["Administrateur", "Superviseur"].includes(userRole);
-  const canAccessJournal = ["Administrateur"].includes(userRole); // ← UNIQUEMENT ADMIN
+  const canAccessJournal = ["Administrateur"].includes(userRole);
   const canAccessProfil = true;
   const canAccessGestionComptes = ["Administrateur"].includes(userRole);
 
-  // ✅ Navigation items
+  // ✅ Navigation items avec labels raccourcis pour desktop
   const navItems = [
     {
       path: "/home",
       label: "Accueil",
+      labelShort: "🏠", // Version courte pour desktop
       icon: "🏠",
-      color: "from-orangeMain to-orangeSecondary",
-      hoverColor: "hover:bg-orange-50 hover:text-orangeMain",
+      color: "from-orange-500 to-orange-400",
+      hoverColor: "hover:bg-orange-50 hover:text-orange-600",
       accessible: true,
       onClick: handleAccueilClick
     },
     {
       path: "/inventaire",
       label: "Recherche",
+      labelShort: "🔍", // Version courte
       icon: "🔍",
-      color: "from-blueMain to-greenMain",
-      hoverColor: "hover:bg-blue-50 hover:text-blueMain",
+      color: "from-blue-600 to-green-500",
+      hoverColor: "hover:bg-blue-50 hover:text-blue-600",
       accessible: true,
       onClick: handleRechercheClick
     },
     {
       path: "/dashboard",
-      label: "Tableau de Bord",
+      label: "Tableau",
+      labelShort: "📊", // Version courte
       icon: "📊",
-      color: "from-greenMain to-blueMain",
-      hoverColor: "hover:bg-green-50 hover:text-greenMain",
+      color: "from-green-500 to-blue-600",
+      hoverColor: "hover:bg-green-50 hover:text-green-600",
       accessible: canAccessDashboard,
       onClick: handleDashboardClick
     },
     {
       path: "/journal",
       label: "Journal",
+      labelShort: "📝", // Version courte
       icon: "📝",
       color: "from-purple-500 to-indigo-600",
       hoverColor: "hover:bg-purple-50 hover:text-purple-600",
-      accessible: canAccessJournal, // ← Contrôlé par canAccessJournal
+      accessible: canAccessJournal,
       onClick: handleJournalClick
     },
     {
       path: "/gestion-comptes",
-      label: "Gestion des Comptes",
+      label: "Comptes",
+      labelShort: "👥", // Version courte
       icon: "👥",
       color: "from-purple-600 to-indigo-700",
-      hoverColor: "hover:bg-purple-50 hover:text-purple-600",
+      hoverColor: "hover:bg-purple-50 hover:text-purple-700",
       accessible: canAccessGestionComptes,
       onClick: handleGestionComptesClick
     },
     {
       path: "/profil",
       label: "Profil",
+      labelShort: "👤", // Version courte
       icon: "👤",
-      color: "from-orangeMain to-blueMain",
-      hoverColor: "hover:bg-orange-50 hover:text-orangeMain",
+      color: "from-orange-500 to-blue-600",
+      hoverColor: "hover:bg-orange-50 hover:text-orange-600",
       accessible: canAccessProfil,
       onClick: handleProfilClick
     }
@@ -240,40 +246,29 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
-            {/* Logo */}
-            <div className="flex items-center flex-shrink-0 gap-2 md:gap-3">
-              <div className="relative">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-orangeMain to-blueMain rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
-                  <span className="text-white text-sm md:text-base">🎴</span>
+            {/* Logo - Version compacte */}
+            <div className="flex items-center flex-shrink-0">
+              <Link to="/home" className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-r from-orange-500 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
+                    <span className="text-white text-sm md:text-base">🎴</span>
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-green-500 rounded-full border border-white animate-pulse"></div>
                 </div>
-                <div className="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-greenMain rounded-full border border-white animate-pulse"></div>
-              </div>
-              
-              <div className="text-left">
-                <span className={`font-bold bg-gradient-to-r from-orangeMain to-blueMain bg-clip-text text-transparent ${
-                  isMobile ? 'text-sm' : 'text-base md:text-lg lg:text-xl'
-                }`}>
-                  {isMobile ? 'GESCARD' : 'Gestion des Cartes'}
-                </span>
-                <span className={`text-gray-500 ${
-                  isMobile ? 'hidden' : 'block text-xs md:text-sm truncate max-w-[200px] lg:max-w-none'
-                }`}>
-                  ABIDJAN NORD-COCODY • ÉliteMultiservices
-                </span>
-              </div>
+                
+                <div className="text-left hidden md:block">
+                  <span className="font-bold bg-gradient-to-r from-orange-500 to-blue-600 bg-clip-text text-transparent text-sm">
+                    GESCARD
+                  </span>
+                  <span className="block text-xs text-gray-500 truncate max-w-[120px]">
+                    Cocody • EMS
+                  </span>
+                </div>
+              </Link>
             </div>
 
-            {/* Indicateur de rôle */}
-            {!isMobile && (
-              <div className="hidden md:flex items-center mx-3 lg:mx-4 px-3 py-1 bg-gradient-to-r from-orangeMain/10 to-blueMain/10 rounded-full border border-orangeMain/20">
-                <span className="text-xs font-semibold text-orangeMain">
-                  {userRole}
-                </span>
-              </div>
-            )}
-
-            {/* Menu Desktop */}
-            <div className="hidden md:flex items-center space-x-1 lg:space-x-3 flex-1 justify-center">
+            {/* Menu Desktop - VERSION COMPACTE ET OPTIMISÉE */}
+            <div className="hidden lg:flex items-center gap-1 xl:gap-2 flex-1 justify-center">
               {navItems
                 .filter(item => item.accessible)
                 .map((item) => (
@@ -281,16 +276,19 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     key={item.path}
                     to={item.path}
                     onClick={item.onClick}
-                    className={`relative px-3 lg:px-4 py-2 rounded-xl transition-all duration-300 font-semibold text-sm lg:text-base whitespace-nowrap ${
+                    className={`relative px-3 py-2 rounded-lg transition-all duration-300 font-medium text-xs xl:text-sm whitespace-nowrap ${
                       isActiveLink(item.path)
-                        ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
+                        ? `text-white bg-gradient-to-r ${item.color} shadow-md`
                         : `text-gray-700 ${item.hoverColor}`
                     }`}
                     aria-current={isActiveLink(item.path) ? "page" : undefined}
+                    title={item.label} // Tooltip avec le nom complet
                   >
-                    <span className="flex items-center gap-2">
-                      <span className="text-base">{item.icon}</span>
-                      <span>{item.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-sm">{item.icon}</span>
+                      {/* Affiche le label court sur desktop */}
+                      <span className="hidden xl:inline">{item.label}</span>
+                      <span className="xl:hidden">{item.labelShort}</span>
                     </span>
                     {isActiveLink(item.path) && (
                       <motion.div
@@ -301,24 +299,91 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                   </Link>
                 ))}
               
+              {/* Bouton Déconnexion compact */}
               <motion.button
                 onClick={handleLogoutClick}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-3 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold shadow hover:shadow-lg transition-all duration-300 ml-1 lg:ml-2"
+                className="px-3 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-xs xl:text-sm font-medium shadow hover:shadow-md transition-all duration-300 ml-1"
                 title="Déconnexion"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5">
                   <span>🚪</span>
-                  <span>Déconnexion</span>
+                  <span className="hidden xl:inline">Déconnexion</span>
+                  <span className="xl:hidden">Sortir</span>
                 </span>
+              </motion.button>
+
+              {/* Indicateur de rôle compact */}
+              <div className="ml-2 px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20">
+                <span className="text-xs font-semibold text-orange-600 truncate max-w-[80px]">
+                  {userRole}
+                </span>
+              </div>
+            </div>
+
+            {/* Menu pour tablettes (md à lg) */}
+            <div className="hidden md:flex lg:hidden items-center gap-2">
+              {navItems
+                .filter(item => item.accessible)
+                .slice(0, 3) // Affiche seulement les 3 premiers sur tablette
+                .map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={item.onClick}
+                    className={`relative px-2 py-2 rounded-lg transition-all duration-300 font-medium text-xs ${
+                      isActiveLink(item.path)
+                        ? `text-white bg-gradient-to-r ${item.color} shadow-md`
+                        : `text-gray-700 ${item.hoverColor}`
+                    }`}
+                    title={item.label}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span className="text-sm">{item.icon}</span>
+                    </span>
+                  </Link>
+                ))}
+              
+              {/* Menu déroulant pour les autres liens sur tablette */}
+              <div className="relative group">
+                <button className="px-2 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
+                  <span className="text-sm">⋯</span>
+                </button>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  {navItems
+                    .filter(item => item.accessible)
+                    .slice(3) // Affiche les liens restants
+                    .map((item) => (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={item.onClick}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{item.icon}</span>
+                          <span>{item.label}</span>
+                        </span>
+                      </Link>
+                    ))}
+                </div>
+              </div>
+              
+              <motion.button
+                onClick={handleLogoutClick}
+                whileTap={{ scale: 0.95 }}
+                className="px-2 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
+                title="Déconnexion"
+              >
+                <span className="text-sm">🚪</span>
               </motion.button>
             </div>
 
-            {/* Menu Mobile */}
+            {/* Menu Mobile (smartphones) */}
             <div className="flex items-center gap-2 md:hidden">
-              <div className="px-2 py-1 bg-gradient-to-r from-orangeMain/10 to-blueMain/10 rounded-full border border-orangeMain/20">
-                <span className="text-xs font-semibold text-orangeMain">
+              <div className="px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20">
+                <span className="text-xs font-semibold text-orange-600">
                   {userRole.length > 8 ? userRole.substring(0, 6) + '...' : userRole}
                 </span>
               </div>
@@ -326,22 +391,22 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               <motion.button
                 onClick={handleLogoutClick}
                 whileTap={{ scale: 0.95 }}
-                className="p-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
+                className="p-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
                 title="Déconnexion"
               >
-                <span className="text-base">🚪</span>
+                <span className="text-sm">🚪</span>
               </motion.button>
               
               <motion.button
                 onClick={toggleMenu}
                 whileTap={{ scale: 0.95 }}
-                className={`p-2 rounded-xl shadow-lg ${
+                className={`p-2 rounded-lg shadow-lg ${
                   isMenuOpen 
-                    ? 'bg-gradient-to-r from-orangeMain to-orangeSecondary text-white' 
-                    : 'bg-gradient-to-r from-blueMain to-greenMain text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-400 text-white' 
+                    : 'bg-gradient-to-r from-blue-600 to-green-500 text-white'
                 }`}
               >
-                <div className="w-6 h-6 flex items-center justify-center">
+                <div className="w-5 h-5 flex items-center justify-center">
                   {isMenuOpen ? '✕' : '☰'}
                 </div>
               </motion.button>
@@ -410,8 +475,8 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                   <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-blue-50 rounded-xl">
                     <div className="text-xs text-gray-600 mb-1">Connecté en tant que</div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-orangeMain">{userRole}</div>
-                      <div className="text-xs text-blueMain font-medium">{getFirstName()}</div>
+                      <div className="font-semibold text-orange-600">{userRole}</div>
+                      <div className="text-xs text-blue-600 font-medium">{getFirstName()}</div>
                     </div>
                     
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
@@ -423,7 +488,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       </div>
                       <div className="bg-white/90 rounded-lg p-2 text-center">
                         <div className="text-gray-500">Statut</div>
-                        <div className="font-medium text-greenMain">En ligne</div>
+                        <div className="font-medium text-green-500">En ligne</div>
                       </div>
                     </div>
                   </div>
@@ -440,9 +505,9 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                         setIsMenuOpen(false);
                       }}
                       whileTap={{ scale: 0.98 }}
-                      className="bg-gradient-to-r from-blueMain/10 to-greenMain/10 border border-blueMain/20 rounded-lg p-3 text-center hover:bg-blue-50 transition-colors"
+                      className="bg-gradient-to-r from-blue-500/10 to-green-500/10 border border-blue-500/20 rounded-lg p-3 text-center hover:bg-blue-50 transition-colors"
                     >
-                      <div className="text-blueMain text-sm font-medium">👤 Profil</div>
+                      <div className="text-blue-600 text-sm font-medium">👤 Profil</div>
                     </motion.button>
                     <motion.button
                       onClick={async () => {
@@ -451,9 +516,9 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                         setIsMenuOpen(false);
                       }}
                       whileTap={{ scale: 0.98 }}
-                      className="bg-gradient-to-r from-orangeMain/10 to-blueMain/10 border border-orangeMain/20 rounded-lg p-3 text-center hover:bg-orange-50 transition-colors"
+                      className="bg-gradient-to-r from-orange-500/10 to-blue-600/10 border border-orange-500/20 rounded-lg p-3 text-center hover:bg-orange-50 transition-colors"
                     >
-                      <div className="text-orangeMain text-sm font-medium">🔍 Recherche</div>
+                      <div className="text-orange-600 text-sm font-medium">🔍 Recherche</div>
                     </motion.button>
                   </div>
                   
@@ -500,7 +565,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                 <div className="text-center space-y-1">
                   <div className="text-xs text-gray-600 font-medium">COORDINATION ABIDJAN NORD-COCODY</div>
                   <div className="text-xs text-gray-500">ÉliteMultiservices</div>
-                  <div className="text-xs text-orangeMain font-semibold">📞 07 76 73 51 15</div>
+                  <div className="text-xs text-orange-600 font-semibold">📞 07 76 73 51 15</div>
                   <div className="text-xs text-gray-400 mt-1">GESCARD v1.0.0</div>
                 </div>
               </div>

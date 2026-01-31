@@ -7,6 +7,7 @@ import Inventaire from "./pages/Inventaire";
 import ImportExport from "./pages/ImportExport";
 import Journal from "./pages/Journal";
 import Profil from "./pages/Profil";
+import GestionComptes from "./pages/GestionComptes"; // ✅ AJOUTER CET IMPORT
 
 // ✅ Composant pour protéger les routes selon le rôle
 interface ProtectedRouteProps {
@@ -111,6 +112,16 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["Administrateur"]}>
               <Journal />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ✅ Gestion des Comptes - accessible seulement à Administrateur */}
+        <Route
+          path="/gestion-comptes"
+          element={
+            <ProtectedRoute allowedRoles={["Administrateur"]}>
+              <GestionComptes />
             </ProtectedRoute>
           }
         />
