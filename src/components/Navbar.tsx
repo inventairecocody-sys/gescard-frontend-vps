@@ -1,72 +1,61 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { journalApi } from "../service/api";
+import { useAuth } from '../hooks/useAuth';
+import { usePermissions } from '../hooks/usePermissions';
+import { 
+  HomeIcon,
+  MagnifyingGlassIcon,
+  ChartBarIcon,
+  DocumentTextIcon,
+  UsersIcon,
+  UserIcon,
+  ArrowRightOnRectangleIcon,
+  XMarkIcon,
+  Bars3Icon,
+  ChevronDownIcon,
+  BuildingOfficeIcon,
+  ShieldCheckIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
 
 interface NavbarProps {
   role?: string;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ role }) => {
+const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { canView } = usePermissions();
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [userRole, setUserRole] = useState("Operateur");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
+  const userRole = user?.role || propRole || 'Opérateur';
+
+  // Responsive
   useEffect(() => {
-    const checkMobile = () => {
+    const checkScreen = () => {
       const width = window.innerWidth;
-      if (width < 1024) setIsMobile(true); // Changé à 1024 pour tablette
-      else setIsMobile(false);
+      setIsMobile(width < 640);
     };
     
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
     
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
     window.addEventListener('scroll', handleScroll);
     
-    const storedRole = role || 
-                      localStorage.getItem("role") || 
-                      localStorage.getItem("Role") || 
-                      "Operateur";
-    setUserRole(storedRole);
-    
     return () => {
-      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('resize', checkScreen);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [role]);
-
-  const handleAccueilClick = async (e: React.MouseEvent) => {
-    if (location.pathname === "/home" || location.pathname === "/dashboard") {
-      e.preventDefault();
-      
-      await journalApi.logAction(
-        'REFRESH_ACCUEIL', 
-        'Rafraîchissement manuel de la page d\'accueil'
-      );
-      
-      window.location.reload();
-    }
-  };
-
-  const toggleMenu = async () => {
-    const newState = !isMenuOpen;
-    setIsMenuOpen(newState);
-    
-    if (newState) {
-      await journalApi.logAction(
-        'MENU_MOBILE_OUVERT', 
-        'Ouverture du menu mobile'
-      );
-    }
-  };
+  }, []);
 
   const isActiveLink = (path: string) => {
     if (path === "/home") {
@@ -75,158 +64,69 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
     return location.pathname === path;
   };
 
-  const handleLogoutClick = () => {
-    setShowLogoutConfirm(true);
+  const handleLogout = async () => {
+    await logout();
+    setShowLogoutConfirm(false);
+    navigate('/login');
   };
 
-  const handleLogoutConfirmed = async () => {
-    const userId = localStorage.getItem("userId");
-    const nomUtilisateur = localStorage.getItem("nomUtilisateur");
-    
-    const itemsToRemove = [
-      "token", "role", "Role", 
-      "NomUtilisateur", "nomUtilisateur",
-      "NomComplet", "nomComplet",
-      "Agence", "agence",
-      "Email", "email",
-      "userId", "loginTime"
-    ];
-    
-    itemsToRemove.forEach(item => localStorage.removeItem(item));
-    
-    try {
-      await journalApi.logLogout(nomUtilisateur || userId || 'unknown', true);
-      console.log('✅ Déconnexion journalisée avec succès');
-    } catch (error) {
-      console.warn('⚠️ Journalisation de la déconnexion échouée:', error);
-    } finally {
-      setShowLogoutConfirm(false);
-      navigate("/");
-    }
-  };
-
-  const handleJournalClick = async (e: React.MouseEvent) => {
-    await journalApi.logAction(
-      'ACCES_JOURNAL', 
-      'Accès à la page du journal d\'activité'
-    );
-    
-    if (location.pathname === "/journal") {
-      e.preventDefault();
-      window.location.reload();
-    }
-  };
-
-  const handleRechercheClick = async () => {
-    await journalApi.logAction(
-      'ACCES_RECHERCHE', 
-      'Accès à la page de recherche'
-    );
-  };
-
-  const handleDashboardClick = async () => {
-    await journalApi.logAction(
-      'ACCES_DASHBOARD', 
-      'Accès au tableau de bord'
-    );
-  };
-
-  const handleProfilClick = async () => {
-    await journalApi.logAction(
-      'ACCES_PROFIL', 
-      'Accès à la page de profil'
-    );
-  };
-
-  const handleGestionComptesClick = async () => {
-    await journalApi.logAction(
-      'ACCES_GESTION_COMPTES', 
-      'Accès à la page de gestion des comptes'
-    );
-  };
-
-  // ✅ CONFIGURATION DES ACCÈS PAR RÔLE
-  const canAccessDashboard = ["Administrateur", "Superviseur"].includes(userRole);
-  const canAccessJournal = ["Administrateur"].includes(userRole);
-  const canAccessProfil = true;
-  const canAccessGestionComptes = ["Administrateur"].includes(userRole);
-
-  // ✅ Navigation items avec labels raccourcis pour desktop
+  // Navigation items avec Heroicons
   const navItems = [
     {
       path: "/home",
       label: "Accueil",
-      labelShort: "🏠", // Version courte pour desktop
-      icon: "🏠",
+      labelShort: "Accueil",
+      icon: HomeIcon,
       color: "from-orange-500 to-orange-400",
       hoverColor: "hover:bg-orange-50 hover:text-orange-600",
-      accessible: true,
-      onClick: handleAccueilClick
+      permission: true
     },
     {
       path: "/inventaire",
-      label: "Recherche",
-      labelShort: "🔍", // Version courte
-      icon: "🔍",
+      label: "Inventaire",
+      labelShort: "Recherche",
+      icon: MagnifyingGlassIcon,
       color: "from-blue-600 to-green-500",
       hoverColor: "hover:bg-blue-50 hover:text-blue-600",
-      accessible: true,
-      onClick: handleRechercheClick
+      permission: canView('inventaire')
     },
     {
       path: "/dashboard",
-      label: "Tableau",
-      labelShort: "📊", // Version courte
-      icon: "📊",
+      label: "Tableau de bord",
+      labelShort: "Dashboard",
+      icon: ChartBarIcon,
       color: "from-green-500 to-blue-600",
       hoverColor: "hover:bg-green-50 hover:text-green-600",
-      accessible: canAccessDashboard,
-      onClick: handleDashboardClick
+      permission: canView('dashboard')
     },
     {
       path: "/journal",
       label: "Journal",
-      labelShort: "📝", // Version courte
-      icon: "📝",
+      labelShort: "Journal",
+      icon: DocumentTextIcon,
       color: "from-purple-500 to-indigo-600",
       hoverColor: "hover:bg-purple-50 hover:text-purple-600",
-      accessible: canAccessJournal,
-      onClick: handleJournalClick
+      permission: canView('journal')
     },
     {
       path: "/gestion-comptes",
-      label: "Comptes",
-      labelShort: "👥", // Version courte
-      icon: "👥",
+      label: "Gestion comptes",
+      labelShort: "Comptes",
+      icon: UsersIcon,
       color: "from-purple-600 to-indigo-700",
       hoverColor: "hover:bg-purple-50 hover:text-purple-700",
-      accessible: canAccessGestionComptes,
-      onClick: handleGestionComptesClick
+      permission: canView('gestion-comptes')
     },
     {
       path: "/profil",
       label: "Profil",
-      labelShort: "👤", // Version courte
-      icon: "👤",
+      labelShort: "Profil",
+      icon: UserIcon,
       color: "from-orange-500 to-blue-600",
       hoverColor: "hover:bg-orange-50 hover:text-orange-600",
-      accessible: canAccessProfil,
-      onClick: handleProfilClick
+      permission: canView('profil')
     }
-  ];
-
-  const getFirstName = () => {
-    const nomComplet = localStorage.getItem("nomComplet") || localStorage.getItem("NomComplet") || "";
-    return nomComplet.split(' ')[0] || "Utilisateur";
-  };
-
-  const getFormattedAgence = () => {
-    const agence = localStorage.getItem("agence") || localStorage.getItem("Agence") || "";
-    if (agence.length > 15) {
-      return agence.substring(0, 12) + '...';
-    }
-    return agence || "Non spécifiée";
-  };
+  ].filter(item => item.permission);
 
   const navbarClasses = `
     fixed top-0 left-0 right-0 z-50 
@@ -239,19 +139,16 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
 
   return (
     <>
-      <nav 
-        className={navbarClasses}
-        role="navigation"
-        aria-label="Navigation principale"
-      >
+      <nav className={navbarClasses} role="navigation" aria-label="Navigation principale">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
-            {/* Logo - Version compacte */}
+            
+            {/* Logo */}
             <div className="flex items-center flex-shrink-0">
               <Link to="/home" className="flex items-center gap-2">
                 <div className="relative">
                   <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-r from-orange-500 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
-                    <span className="text-white text-sm md:text-base">🎴</span>
+                    <ShieldCheckIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                   </div>
                   <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-green-500 rounded-full border border-white animate-pulse"></div>
                 </div>
@@ -261,32 +158,30 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     GESCARD
                   </span>
                   <span className="block text-xs text-gray-500 truncate max-w-[120px]">
-                    Cocody • EMS
+                    {user?.coordination || 'Cocody'}
                   </span>
                 </div>
               </Link>
             </div>
 
-            {/* Menu Desktop - VERSION COMPACTE ET OPTIMISÉE */}
+            {/* Menu Desktop */}
             <div className="hidden lg:flex items-center gap-1 xl:gap-2 flex-1 justify-center">
-              {navItems
-                .filter(item => item.accessible)
-                .map((item) => (
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    onClick={item.onClick}
                     className={`relative px-3 py-2 rounded-lg transition-all duration-300 font-medium text-xs xl:text-sm whitespace-nowrap ${
                       isActiveLink(item.path)
                         ? `text-white bg-gradient-to-r ${item.color} shadow-md`
                         : `text-gray-700 ${item.hoverColor}`
                     }`}
                     aria-current={isActiveLink(item.path) ? "page" : undefined}
-                    title={item.label} // Tooltip avec le nom complet
+                    title={item.label}
                   >
                     <span className="flex items-center gap-1.5">
-                      <span className="text-sm">{item.icon}</span>
-                      {/* Affiche le label court sur desktop */}
+                      <Icon className="w-4 h-4" />
                       <span className="hidden xl:inline">{item.label}</span>
                       <span className="xl:hidden">{item.labelShort}</span>
                     </span>
@@ -297,90 +192,90 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                       />
                     )}
                   </Link>
-                ))}
+                );
+              })}
               
-              {/* Bouton Déconnexion compact */}
+              {/* Bouton Déconnexion */}
               <motion.button
-                onClick={handleLogoutClick}
+                onClick={() => setShowLogoutConfirm(true)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-3 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-xs xl:text-sm font-medium shadow hover:shadow-md transition-all duration-300 ml-1"
                 title="Déconnexion"
               >
                 <span className="flex items-center gap-1.5">
-                  <span>🚪</span>
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
                   <span className="hidden xl:inline">Déconnexion</span>
                   <span className="xl:hidden">Sortir</span>
                 </span>
               </motion.button>
 
-              {/* Indicateur de rôle compact */}
-              <div className="ml-2 px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20">
+              {/* Badge rôle */}
+              <div className="ml-2 px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20 flex items-center gap-1">
+                <ShieldCheckIcon className="w-3 h-3 text-orange-600" />
                 <span className="text-xs font-semibold text-orange-600 truncate max-w-[80px]">
                   {userRole}
                 </span>
               </div>
             </div>
 
-            {/* Menu pour tablettes (md à lg) */}
+            {/* Menu tablette */}
             <div className="hidden md:flex lg:hidden items-center gap-2">
-              {navItems
-                .filter(item => item.accessible)
-                .slice(0, 3) // Affiche seulement les 3 premiers sur tablette
-                .map((item) => (
+              {navItems.slice(0, 3).map((item) => {
+                const Icon = item.icon;
+                return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    onClick={item.onClick}
-                    className={`relative px-2 py-2 rounded-lg transition-all duration-300 font-medium text-xs ${
+                    className={`relative p-2 rounded-lg transition-all duration-300 ${
                       isActiveLink(item.path)
                         ? `text-white bg-gradient-to-r ${item.color} shadow-md`
                         : `text-gray-700 ${item.hoverColor}`
                     }`}
                     title={item.label}
                   >
-                    <span className="flex items-center gap-1">
-                      <span className="text-sm">{item.icon}</span>
-                    </span>
+                    <Icon className="w-4 h-4" />
                   </Link>
-                ))}
+                );
+              })}
               
-              {/* Menu déroulant pour les autres liens sur tablette */}
-              <div className="relative group">
-                <button className="px-2 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
-                  <span className="text-sm">⋯</span>
-                </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  {navItems
-                    .filter(item => item.accessible)
-                    .slice(3) // Affiche les liens restants
-                    .map((item) => (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={item.onClick}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{item.icon}</span>
-                          <span>{item.label}</span>
-                        </span>
-                      </Link>
-                    ))}
+              {/* Menu déroulant tablette */}
+              {navItems.length > 3 && (
+                <div className="relative group">
+                  <button className="p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
+                    <ChevronDownIcon className="w-4 h-4" />
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    {navItems.slice(3).map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Icon className="w-4 h-4" />
+                            <span>{item.label}</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
               
               <motion.button
-                onClick={handleLogoutClick}
+                onClick={() => setShowLogoutConfirm(true)}
                 whileTap={{ scale: 0.95 }}
-                className="px-2 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
+                className="p-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
                 title="Déconnexion"
               >
-                <span className="text-sm">🚪</span>
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
               </motion.button>
             </div>
 
-            {/* Menu Mobile (smartphones) */}
+            {/* Menu mobile */}
             <div className="flex items-center gap-2 md:hidden">
               <div className="px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20">
                 <span className="text-xs font-semibold text-orange-600">
@@ -389,16 +284,16 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               </div>
               
               <motion.button
-                onClick={handleLogoutClick}
+                onClick={() => setShowLogoutConfirm(true)}
                 whileTap={{ scale: 0.95 }}
                 className="p-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
                 title="Déconnexion"
               >
-                <span className="text-sm">🚪</span>
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
               </motion.button>
               
               <motion.button
-                onClick={toggleMenu}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
                 whileTap={{ scale: 0.95 }}
                 className={`p-2 rounded-lg shadow-lg ${
                   isMenuOpen 
@@ -406,15 +301,17 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     : 'bg-gradient-to-r from-blue-600 to-green-500 text-white'
                 }`}
               >
-                <div className="w-5 h-5 flex items-center justify-center">
-                  {isMenuOpen ? '✕' : '☰'}
-                </div>
+                {isMenuOpen ? (
+                  <XMarkIcon className="w-5 h-5" />
+                ) : (
+                  <Bars3Icon className="w-5 h-5" />
+                )}
               </motion.button>
             </div>
           </div>
         </div>
 
-        {/* Overlay Mobile */}
+        {/* Overlay mobile */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -427,7 +324,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
           )}
         </AnimatePresence>
 
-        {/* Menu Mobile */}
+        {/* Menu mobile */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -435,20 +332,16 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
               animate={{ opacity: 1, y: 0, height: "auto" }}
               exit={{ opacity: 0, y: -20, height: 0 }}
               className="md:hidden bg-white shadow-2xl border-t border-gray-200 absolute top-full left-0 right-0 overflow-hidden z-50"
-              style={{ maxHeight: "calc(100vh - 56px)" }}
             >
               <div className="py-2 px-2 space-y-1 max-h-[70vh] overflow-y-auto">
-                {navItems
-                  .filter(item => item.accessible)
-                  .map((item) => (
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
                     <Link
                       key={item.path}
                       to={item.path}
-                      onClick={(e) => {
-                        if (item.onClick) item.onClick(e);
-                        setIsMenuOpen(false);
-                      }}
-                      className={`block px-4 py-3 rounded-xl transition-all duration-300 font-semibold text-sm relative ${
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`block px-4 py-3 rounded-xl transition-all duration-300 font-medium text-sm relative ${
                         isActiveLink(item.path)
                           ? `text-white bg-gradient-to-r ${item.color} shadow-lg`
                           : `text-gray-700 bg-gray-50 hover:bg-gray-100`
@@ -456,7 +349,7 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                     >
                       <span className="flex items-center justify-between">
                         <span className="flex items-center gap-3">
-                          <span className="text-lg">{item.icon}</span>
+                          <Icon className="w-5 h-5" />
                           <span>{item.label}</span>
                         </span>
                         
@@ -468,105 +361,49 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
                         )}
                       </span>
                     </Link>
-                  ))}
+                  );
+                })}
                 
                 {/* Info utilisateur */}
                 <div className="border-t border-gray-200 my-2 pt-2">
                   <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-blue-50 rounded-xl">
-                    <div className="text-xs text-gray-600 mb-1">Connecté en tant que</div>
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold text-orange-600">{userRole}</div>
-                      <div className="text-xs text-blue-600 font-medium">{getFirstName()}</div>
+                    <div className="text-xs text-gray-600 mb-2">Connecté en tant que</div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheckIcon className="w-4 h-4 text-orange-600" />
+                        <span className="font-semibold text-orange-600 text-sm">{userRole}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <ClockIcon className="w-3 h-3 text-green-600" />
+                        <span className="text-xs text-green-600">En ligne</span>
+                      </div>
                     </div>
                     
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-white/90 rounded-lg p-2 text-center">
-                        <div className="text-gray-500">Agence</div>
+                        <BuildingOfficeIcon className="w-3 h-3 mx-auto mb-1 text-gray-500" />
+                        <div className="text-gray-500">Coordination</div>
                         <div className="font-medium text-gray-800 truncate">
-                          {getFormattedAgence()}
+                          {user?.coordination || 'Non spécifiée'}
                         </div>
                       </div>
                       <div className="bg-white/90 rounded-lg p-2 text-center">
-                        <div className="text-gray-500">Statut</div>
-                        <div className="font-medium text-green-500">En ligne</div>
+                        <UserIcon className="w-3 h-3 mx-auto mb-1 text-gray-500" />
+                        <div className="text-gray-500">Utilisateur</div>
+                        <div className="font-medium text-gray-800 truncate">
+                          {user?.nomUtilisateur || 'Utilisateur'}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                {/* Actions rapides */}
-                <div className="px-4 py-2">
-                  <div className="text-xs text-gray-500 mb-2">Actions rapides</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <motion.button
-                      onClick={async () => {
-                        await handleProfilClick();
-                        navigate("/profil");
-                        setIsMenuOpen(false);
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="bg-gradient-to-r from-blue-500/10 to-green-500/10 border border-blue-500/20 rounded-lg p-3 text-center hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="text-blue-600 text-sm font-medium">👤 Profil</div>
-                    </motion.button>
-                    <motion.button
-                      onClick={async () => {
-                        await handleRechercheClick();
-                        navigate("/inventaire");
-                        setIsMenuOpen(false);
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="bg-gradient-to-r from-orange-500/10 to-blue-600/10 border border-orange-500/20 rounded-lg p-3 text-center hover:bg-orange-50 transition-colors"
-                    >
-                      <div className="text-orange-600 text-sm font-medium">🔍 Recherche</div>
-                    </motion.button>
-                  </div>
-                  
-                  {/* Bouton Journal (seulement si admin) */}
-                  {canAccessJournal && (
-                    <motion.button
-                      onClick={async (e) => {
-                        await handleJournalClick(e);
-                        if (!(e as any).defaultPrevented) {
-                          navigate("/journal");
-                          setIsMenuOpen(false);
-                        }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full mt-2 bg-gradient-to-r from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-purple-600 text-sm font-medium">📝 Journal</span>
-                      </div>
-                    </motion.button>
-                  )}
-                  
-                  {/* Bouton Gestion des Comptes (seulement si admin) */}
-                  {canAccessGestionComptes && (
-                    <motion.button
-                      onClick={async () => {
-                        await handleGestionComptesClick();
-                        navigate("/gestion-comptes");
-                        setIsMenuOpen(false);
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full mt-2 bg-gradient-to-r from-purple-600/10 to-indigo-700/10 border border-purple-600/20 rounded-lg p-3 text-center hover:bg-purple-50 transition-colors"
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-purple-700 text-sm font-medium">👥 Gestion Comptes</span>
-                      </div>
-                    </motion.button>
-                  )}
                 </div>
               </div>
               
               {/* Pied de menu */}
               <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
                 <div className="text-center space-y-1">
-                  <div className="text-xs text-gray-600 font-medium">COORDINATION ABIDJAN NORD-COCODY</div>
-                  <div className="text-xs text-gray-500">ÉliteMultiservices</div>
-                  <div className="text-xs text-orange-600 font-semibold">📞 07 76 73 51 15</div>
-                  <div className="text-xs text-gray-400 mt-1">GESCARD v1.0.0</div>
+                  <div className="text-xs text-gray-600 font-medium">GESCARD v2.0.0</div>
+                  <div className="text-xs text-gray-500">© 2025 Tous droits réservés</div>
                 </div>
               </div>
             </motion.div>
@@ -579,55 +416,54 @@ const Navbar: React.FC<NavbarProps> = ({ role }) => {
       {/* Modal de déconnexion */}
       <AnimatePresence>
         {showLogoutConfirm && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowLogoutConfirm(false)}
+          >
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
-              onClick={() => setShowLogoutConfirm(false)}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 max-w-md w-full mx-auto border border-red-100"
+              onClick={(e) => e.stopPropagation()}
             >
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-auto border border-red-100"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-xl flex items-center justify-center">
-                    <span className="text-white text-xl">🚪</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800">Confirmer la déconnexion</h3>
+              <div className="flex items-center gap-3 md:gap-4 mb-4">
+                <div className={`${isMobile ? 'w-10 h-10' : 'w-12 h-12'} bg-gradient-to-r from-red-500 to-red-600 rounded-xl flex items-center justify-center`}>
+                  <ArrowRightOnRectangleIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-white`} />
                 </div>
-                
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Êtes-vous sûr de vouloir vous déconnecter ? 
-                  Vous devrez vous reconnecter pour accéder à nouveau à l'application.
-                </p>
-                
-                <div className="flex justify-end gap-3">
-                  <motion.button
-                    onClick={() => setShowLogoutConfirm(false)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
-                  >
-                    Annuler
-                  </motion.button>
-                  <motion.button
-                    onClick={handleLogoutConfirmed}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg flex items-center gap-3"
-                  >
-                    <span>🚪</span>
-                    Déconnexion
-                  </motion.button>
-                </div>
-              </motion.div>
+                <h3 className={`font-bold text-gray-800 ${isMobile ? 'text-base' : 'text-lg'}`}>
+                  Confirmer la déconnexion
+                </h3>
+              </div>
+              
+              <p className={`text-gray-600 mb-4 md:mb-6 leading-relaxed ${isMobile ? 'text-sm' : 'text-base'}`}>
+                Êtes-vous sûr de vouloir vous déconnecter ?
+              </p>
+              
+              <div className="flex justify-end gap-2 md:gap-3">
+                <motion.button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`px-4 py-2 md:px-6 md:py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium ${isMobile ? 'text-sm' : ''}`}
+                >
+                  Annuler
+                </motion.button>
+                <motion.button
+                  onClick={handleLogout}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-lg flex items-center gap-2 ${isMobile ? 'text-sm' : ''}`}
+                >
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  Déconnexion
+                </motion.button>
+              </div>
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

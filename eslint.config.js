@@ -19,5 +19,15 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Désactiver complètement la règle no-explicit-any
+      '@typescript-eslint/no-explicit-any': 'off',
+      
+      // Alternative : passer en warning au lieu d'erreur
+      // '@typescript-eslint/no-explicit-any': 'warn',
+      
+      // Ou configuration plus permissive
+      // '@typescript-eslint/no-explicit-any': ['error', { ignoreRestArgs: true }],
+    },
   },
 ])

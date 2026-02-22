@@ -1,6 +1,17 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../service/api";
+import api from "../Services/api/client";
+import { 
+  DocumentArrowUpIcon, 
+  DocumentTextIcon,
+  TableCellsIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  ArrowPathIcon,
+  CloudArrowUpIcon
+} from '@heroicons/react/24/outline';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -25,46 +36,52 @@ const ImportModal: React.FC<ImportModalProps> = ({
   );
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showFormatComparison, setShowFormatComparison] = useState(false);
   const [recommendation, setRecommendation] = useState<string>('');
 
+  // Responsive
+  const [isMobile, setIsMobile] = useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const validateFile = (selectedFile: File): boolean => {
-    // Réinitialiser les erreurs
     setValidationError(null);
     setRecommendation('');
     
-    // Vérifier le type de fichier
     const isCSV = selectedFile.name.toLowerCase().endsWith('.csv');
     const isExcel = /\.(xlsx|xls)$/i.test(selectedFile.name);
     
     if (!isCSV && !isExcel) {
-      setValidationError('❌ Format non supporté. Utilisez .csv, .xlsx ou .xls');
+      setValidationError('Format non supporté. Utilisez .csv, .xlsx ou .xls');
       return false;
     }
 
-    // Vérifier la taille (50MB max)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (selectedFile.size > maxSize) {
       const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(2);
-      setValidationError(`❌ Fichier trop volumineux (${sizeMB}MB). Maximum: 50MB`);
+      setValidationError(`Fichier trop volumineux (${sizeMB}MB). Maximum: 50MB`);
       return false;
     }
 
-    // Vérifier si le fichier est vide
     if (selectedFile.size === 0) {
-      setValidationError('❌ Le fichier est vide');
+      setValidationError('Le fichier est vide');
       return false;
     }
 
-    // Ajouter des recommandations selon le format et la taille
     const sizeMB = selectedFile.size / (1024 * 1024);
     
     if (isExcel && sizeMB > 10) {
-      setRecommendation('💡 Pour de meilleures performances, convertissez ce fichier Excel en CSV');
+      setRecommendation('Pour de meilleures performances, convertissez ce fichier Excel en CSV');
     } else if (isCSV) {
-      setRecommendation('✅ Format CSV optimisé pour les performances');
+      setRecommendation('Format CSV optimisé pour les performances');
     } else if (isExcel && sizeMB > 5) {
-      setRecommendation('⚠️ Pour les gros fichiers, utilisez CSV pour éviter les timeouts');
+      setRecommendation('Pour les gros fichiers, utilisez CSV pour éviter les timeouts');
     }
 
     return true;
@@ -90,8 +107,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
         }
         handleClose();
       } catch (error) {
-        console.error('❌ Erreur lors de l\'import:', error);
-        // Ne pas fermer le modal en cas d'erreur
+        console.error('Erreur lors de l\'import:', error);
       }
     }
   };
@@ -136,7 +152,6 @@ const ImportModal: React.FC<ImportModalProps> = ({
     }
   };
 
-  // Fonction pour formater la taille du fichier
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -145,15 +160,12 @@ const ImportModal: React.FC<ImportModalProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Ajouter cette fonction pour télécharger le template
   const handleDownloadTemplate = async (format: 'csv' | 'excel') => {
     try {
       if (format === 'csv') {
-        // Créer le template CSV directement
-        const csvTemplate = `LIEU D'ENROLEMENT,SITE DE RETRAIT,RANGEMENT,NOM,PRENOMS,DATE DE NAISSANCE,LIEU NAISSANCE,CONTACT,DELIVRANCE,CONTACT DE RETRAIT,DATE DE DELIVRANCE
-Abidjan Plateau,Yopougon,A1-001,KOUAME,Jean,Thu Jul 12 2001 00:00:00 GMT+0000,Abidjan,01234567,OUI,07654321,2024-11-20
-Cocody Centre,2 Plateaux,B2-001,TRAORE,Amina,Sun Jan 25 2015 00:00:00 GMT+0000,Abidjan,09876543,OUI,01234567,2024-11-21
-Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké,05566778,NON,,2024-11-22`;
+        const csvTemplate = `NOM,PRENOM,TELEPHONE,EMAIL,DATE_NAISSANCE,LIEU_NAISSANCE,CONTACT_RETRAIT
+KOUAME,Jean,01234567,jean@email.com,2001-07-12,Abidjan,07654321
+TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
         
         const blob = new Blob([csvTemplate], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
@@ -165,7 +177,6 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else {
-        // Template Excel via API
         const response = await api.get('/api/import-export/template', {
           responseType: 'blob'
         });
@@ -180,28 +191,11 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
         window.URL.revokeObjectURL(url);
       }
       
-      alert(`✅ Template ${format.toUpperCase()} téléchargé !`);
-    } catch (error: any) {
-      console.error('❌ Erreur téléchargement template:', error);
-      alert('❌ Erreur lors du téléchargement du template');
+      alert(`Template ${format.toUpperCase()} téléchargé !`);
+    } catch (error) {
+      console.error('Erreur téléchargement template:', error);
+      alert('Erreur lors du téléchargement du template');
     }
-  };
-
-  // Obtenir l'icône selon le mode
-  const getModeIcon = () => {
-    return mode === 'smart' ? '🔄' : '📤';
-  };
-
-  // Obtenir le titre selon le mode
-  const getModeTitle = () => {
-    return mode === 'smart' ? 'Synchronisation Intelligente' : 'Importation Standard';
-  };
-
-  // Obtenir la description selon le mode
-  const getModeDescription = () => {
-    return mode === 'smart' 
-      ? 'Synchronise les données au lieu de créer des doublons' 
-      : 'Ajoute de nouvelles cartes au système';
   };
 
   if (!isOpen) return null;
@@ -225,242 +219,162 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         >
+          
           {/* En-tête */}
-          <div className="sticky top-0 z-10 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white px-6 py-4 rounded-t-xl">
+          <div className="sticky top-0 z-10 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white px-4 md:px-6 py-3 md:py-4 rounded-t-xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">{getModeIcon()}</span>
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-white/20 rounded-lg flex items-center justify-center`}>
+                  <DocumentArrowUpIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-white`} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">{getModeTitle()}</h2>
-                  <p className="text-white/90 text-sm">
-                    {getModeDescription()}
+                  <h2 className={`font-bold ${isMobile ? 'text-base' : 'text-lg'}`}>
+                    {mode === 'smart' ? 'Synchronisation Intelligente' : 'Importation Standard'}
+                  </h2>
+                  <p className={`text-white/90 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    {mode === 'smart' 
+                      ? 'Synchronise les données sans créer de doublons' 
+                      : 'Ajoute de nouvelles cartes'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleClose}
                 disabled={isImporting}
-                className="w-8 h-8 rounded-lg hover:bg-white/20 flex items-center justify-center transition-colors disabled:opacity-50"
+                className={`${isMobile ? 'w-7 h-7' : 'w-8 h-8'} rounded-lg hover:bg-white/20 flex items-center justify-center transition-colors disabled:opacity-50`}
                 aria-label="Fermer"
               >
-                ✕
+                <XMarkIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
               </button>
             </div>
           </div>
 
           {/* Contenu */}
-          <div className="p-6">
+          <div className="p-4 md:p-6">
+            
             {/* Sélection du mode */}
             {onModeChange && (
-              <div className="mb-6">
-                <p className="text-sm font-semibold text-gray-700 mb-3">Mode d'importation :</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="mb-4 md:mb-6">
+                <p className={`font-semibold text-gray-700 mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                  Mode d'importation :
+                </p>
+                <div className="grid grid-cols-2 gap-2 md:gap-3">
                   <button
                     onClick={() => onModeChange('standard')}
                     disabled={isImporting}
-                    className={`p-3 border rounded-lg transition-all flex flex-col items-center justify-center ${
+                    className={`p-2 md:p-3 border rounded-lg transition-all flex flex-col items-center justify-center ${
                       mode === 'standard'
                         ? 'border-[#0077B6] bg-blue-50 text-[#0077B6] ring-2 ring-blue-100'
                         : 'border-gray-300 hover:border-gray-400 text-gray-700'
                     } ${isImporting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    aria-pressed={mode === 'standard'}
                   >
-                    <div className="text-lg mb-1">📤</div>
-                    <p className="font-medium">Standard</p>
-                    <p className="text-xs mt-1 opacity-75">Ajoute seulement</p>
+                    <DocumentTextIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} mb-1`} />
+                    <p className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Standard</p>
+                    <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} opacity-75 mt-1`}>
+                      Ajoute seulement
+                    </p>
                   </button>
                   
                   <button
                     onClick={() => onModeChange('smart')}
                     disabled={isImporting}
-                    className={`p-3 border rounded-lg transition-all flex flex-col items-center justify-center ${
+                    className={`p-2 md:p-3 border rounded-lg transition-all flex flex-col items-center justify-center ${
                       mode === 'smart'
                         ? 'border-[#2E8B57] bg-green-50 text-[#2E8B57] ring-2 ring-green-100'
                         : 'border-gray-300 hover:border-gray-400 text-gray-700'
                     } ${isImporting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    aria-pressed={mode === 'smart'}
                   >
-                    <div className="text-lg mb-1">🔄</div>
-                    <p className="font-medium">Intelligent</p>
-                    <p className="text-xs mt-1 opacity-75">Synchronise</p>
+                    <ArrowPathIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} mb-1`} />
+                    <p className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Intelligent</p>
+                    <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} opacity-75 mt-1`}>
+                      Synchronise
+                    </p>
                   </button>
                 </div>
               </div>
             )}
 
             {/* Instructions selon le mode */}
-            <div className="mb-6">
+            <div className="mb-4 md:mb-6">
               {mode === 'smart' ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-bold text-green-800 mb-2 flex items-center gap-2">
-                    <span>🔄</span>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 md:p-4">
+                  <h3 className={`font-bold text-green-800 mb-2 flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-base'}`}>
+                    <ArrowPathIcon className="w-4 h-4" />
                     Avantages de la synchronisation
                   </h3>
-                  <ul className="text-green-700 text-sm space-y-1 pl-1">
+                  <ul className="text-green-700 text-xs md:text-sm space-y-1">
                     <li className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 shrink-0">✓</span>
-                      <span>Met à jour la <strong className="font-bold">DÉLIVRANCE</strong> si différente</span>
+                      <CheckCircleIcon className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                      <span>Met à jour la <strong>DÉLIVRANCE</strong> si différente</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 shrink-0">✓</span>
-                      <span>Conserve les <strong className="font-bold">CONTACTS</strong> existants</span>
+                      <CheckCircleIcon className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                      <span>Conserve les <strong>CONTACTS</strong> existants</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 shrink-0">✓</span>
-                      <span>Conserve la <strong className="font-bold">DATE</strong> de délivrance existante</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 shrink-0">✓</span>
+                      <CheckCircleIcon className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                       <span>Ajoute les nouvelles personnes</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 shrink-0">✓</span>
-                      <span>Ignore les doublons exacts</span>
                     </li>
                   </ul>
                 </div>
               ) : (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
-                    <span>📤</span>
-                    Caractéristiques de l'import standard
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4">
+                  <h3 className={`font-bold text-blue-800 mb-2 flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-base'}`}>
+                    <DocumentTextIcon className="w-4 h-4" />
+                    Caractéristiques
                   </h3>
-                  <ul className="text-blue-700 text-sm space-y-1 pl-1">
+                  <ul className="text-blue-700 text-xs md:text-sm space-y-1">
                     <li className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-0.5 shrink-0">✓</span>
+                      <CheckCircleIcon className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                       <span>Ajoute de nouvelles cartes</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-0.5 shrink-0">✓</span>
+                      <CheckCircleIcon className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                       <span>Ignore les doublons existants</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-0.5 shrink-0">✓</span>
-                      <span>Valide les en-têtes requis (NOM, PRENOMS)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-0.5 shrink-0">✓</span>
-                      <span>Formate automatiquement les dates et contacts</span>
                     </li>
                   </ul>
                 </div>
               )}
             </div>
 
-            {/* Télécharger les templates */}
-            <div className="mb-6">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Télécharger un template :</p>
-              <div className="flex gap-3">
+            {/* Templates */}
+            <div className="mb-4 md:mb-6">
+              <p className={`font-semibold text-gray-700 mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                Télécharger un template :
+              </p>
+              <div className="flex gap-2 md:gap-3">
                 <button
                   onClick={() => handleDownloadTemplate('csv')}
                   disabled={isImporting}
-                  className="flex-1 px-4 py-3 bg-green-100 text-green-700 border border-green-300 rounded-lg hover:bg-green-200 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-3 py-2 md:px-4 md:py-3 bg-green-100 text-green-700 border border-green-300 rounded-lg hover:bg-green-200 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="text-lg">📄</span>
+                  <DocumentTextIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
                   <div className="text-left">
-                    <p className="font-medium">Template CSV</p>
-                    <p className="text-xs opacity-75">Format optimisé</p>
+                    <p className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>CSV</p>
+                    <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} opacity-75`}>Optimisé</p>
                   </div>
                 </button>
                 <button
                   onClick={() => handleDownloadTemplate('excel')}
                   disabled={isImporting}
-                  className="flex-1 px-4 py-3 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-3 py-2 md:px-4 md:py-3 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="text-lg">📊</span>
+                  <TableCellsIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
                   <div className="text-left">
-                    <p className="font-medium">Template Excel</p>
-                    <p className="text-xs opacity-75">Format compatible</p>
+                    <p className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Excel</p>
+                    <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} opacity-75`}>Compatible</p>
                   </div>
                 </button>
               </div>
-            </div>
-
-            {/* Comparaison des formats */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-gray-700">Comparaison des formats :</p>
-                <button
-                  onClick={() => setShowFormatComparison(!showFormatComparison)}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                >
-                  {showFormatComparison ? 'Masquer' : 'Voir détails'}
-                  <span>{showFormatComparison ? '↑' : '↓'}</span>
-                </button>
-              </div>
-              
-              {/* Comparaison détaillée */}
-              {showFormatComparison && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-3"
-                >
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-white p-3 rounded-lg border border-green-200">
-                        <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">
-                          <span>✅</span>
-                          CSV (Recommandé)
-                        </h4>
-                        <ul className="text-sm text-green-700 space-y-1">
-                          <li className="flex items-center gap-2">
-                            <span className="text-green-500 text-xs">⚡</span>
-                            <span>10x plus rapide</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-green-500 text-xs">💾</span>
-                            <span>80% moins de mémoire</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-green-500 text-xs">📈</span>
-                            <span>Supporte 5000+ lignes</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-green-500 text-xs">✅</span>
-                            <span>Parsing des dates corrigé</span>
-                          </li>
-                        </ul>
-                      </div>
-                      <div className="bg-white p-3 rounded-lg border border-orange-200">
-                        <h4 className="font-bold text-orange-700 mb-2 flex items-center gap-2">
-                          <span>⚠️</span>
-                          Excel (Compatibilité)
-                        </h4>
-                        <ul className="text-sm text-orange-700 space-y-1">
-                          <li className="flex items-center gap-2">
-                            <span className="text-orange-500 text-xs">🐌</span>
-                            <span>Plus lent</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-orange-500 text-xs">📊</span>
-                            <span>Plus de mémoire utilisée</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-orange-500 text-xs">⚠️</span>
-                            <span>Limite: 1000 lignes</span>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-orange-500 text-xs">❌</span>
-                            <span>Erreur 500 possible</span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
             </div>
 
             {/* Sélection de fichier */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <div className="mb-4 md:mb-6">
+              <label className={`font-semibold text-gray-700 mb-2 block ${isMobile ? 'text-xs' : 'text-sm'}`}>
                 Sélectionnez un fichier :
               </label>
               <div 
-                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                className={`border-2 border-dashed rounded-xl p-4 md:p-6 text-center transition-colors cursor-pointer ${
                   isDragging 
                     ? 'border-[#F77F00] bg-orange-50/50' 
                     : file 
@@ -473,7 +387,6 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
                 onClick={() => document.getElementById('file-input')?.click()}
                 role="button"
                 tabIndex={0}
-                aria-label="Zone de dépôt de fichier"
               >
                 <input
                   type="file"
@@ -482,47 +395,36 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
                   accept=".xlsx,.xls,.csv"
                   className="hidden"
                   disabled={isImporting}
-                  aria-label="Sélectionner un fichier"
                 />
                 <div className={`${isImporting ? 'opacity-50' : ''}`}>
-                  <div className="text-3xl mb-3 text-gray-400">📄</div>
-                  <p className="text-gray-600 mb-1 font-medium">
-                    {file ? file.name : isDragging ? 'Déposez le fichier ici' : 'Cliquez ou glissez-déposez un fichier'}
+                  <CloudArrowUpIcon className={`${isMobile ? 'w-8 h-8' : 'w-12 h-12'} mx-auto mb-2 md:mb-3 text-gray-400`} />
+                  <p className={`text-gray-600 mb-1 font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    {file ? file.name : isDragging ? 'Déposez le fichier' : 'Cliquez ou glissez-déposez'}
                   </p>
-                  <p className="text-gray-500 text-sm mb-3">
-                    Formats acceptés : .csv, .xlsx, .xls (max 50MB)
+                  <p className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                    Formats: .csv, .xlsx, .xls (max 50MB)
                   </p>
-                  <button 
-                    type="button"
-                    className="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isImporting}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      document.getElementById('file-input')?.click();
-                    }}
-                  >
-                    Parcourir les fichiers
-                  </button>
                 </div>
               </div>
               
-              {/* Informations fichier */}
+              {/* Info fichier */}
               {file && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg"
+                  className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-green-600 text-lg">✓</span>
-                      <div>
-                        <p className="font-medium text-green-800 truncate max-w-[200px]">{file.name}</p>
-                        <p className="text-green-700 text-sm">
-                          Taille : {formatFileSize(file.size)} • Format : {file.name.split('.').pop()?.toUpperCase()}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      <div className="truncate">
+                        <p className="font-medium text-green-800 text-xs md:text-sm truncate">{file.name}</p>
+                        <p className="text-green-700 text-[10px] md:text-xs">
+                          {formatFileSize(file.size)} • {file.name.split('.').pop()?.toUpperCase()}
                         </p>
                         {recommendation && (
-                          <p className="text-blue-700 text-sm mt-1 flex items-center gap-1">
+                          <p className="text-blue-700 text-[10px] md:text-xs mt-1 flex items-center gap-1">
+                            <InformationCircleIcon className="w-3 h-3" />
                             {recommendation}
                           </p>
                         )}
@@ -534,63 +436,51 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
                           e.stopPropagation();
                           setFile(null);
                         }}
-                        className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
-                        aria-label="Supprimer le fichier"
+                        className="p-1 text-gray-500 hover:text-gray-700 rounded hover:bg-gray-100 flex-shrink-0"
                       >
-                        ✕
+                        <XMarkIcon className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 </motion.div>
               )}
               
-              {/* Erreur de validation */}
+              {/* Erreur */}
               {validationError && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+                  className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-red-600">⚠️</span>
-                    <div>
-                      <p className="font-medium text-red-800">Validation échouée</p>
-                      <p className="text-red-700 text-sm">{validationError}</p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <p className="text-red-700 text-xs md:text-sm">{validationError}</p>
                   </div>
                 </motion.div>
               )}
             </div>
 
-            {/* Informations importantes */}
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="font-bold text-yellow-800 mb-2 flex items-center gap-2">
-                <span>📋</span>
-                Instructions importantes
+            {/* Instructions */}
+            <div className="mb-4 md:mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3 md:p-4">
+              <h4 className={`font-bold text-yellow-800 mb-2 flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-base'}`}>
+                <InformationCircleIcon className="w-4 h-4" />
+                Instructions
               </h4>
-              <ul className="text-yellow-700 text-sm space-y-1 pl-1">
+              <ul className="text-yellow-700 text-xs md:text-sm space-y-1">
                 <li className="flex items-start gap-2">
                   <span className="text-yellow-600 mt-0.5 shrink-0">•</span>
-                  <span>Les colonnes <strong className="font-bold">NOM</strong> et <strong className="font-bold">PRENOMS</strong> sont obligatoires</span>
+                  <span><strong>NOM</strong> et <strong>PRENOM</strong> obligatoires</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-yellow-600 mt-0.5 shrink-0">•</span>
-                  <span>Format des dates : <strong className="font-bold">AAAA-MM-JJ</strong> ou <strong className="font-bold">Thu Jul 12 2001 00:00:00 GMT+0000</strong></span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 mt-0.5 shrink-0">•</span>
-                  <span>Les contacts doivent être au format numérique (8 chiffres)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 mt-0.5 shrink-0">•</span>
-                  <span>Pour les fichiers Excel volumineux, utilisez CSV pour plus de rapidité</span>
+                  <span>Format dates: <strong>AAAA-MM-JJ</strong></span>
                 </li>
               </ul>
             </div>
 
             {/* Option "Ne plus afficher" */}
-            <div className="mb-6">
-              <label className="flex items-center gap-3 cursor-pointer">
+            <div className="mb-4 md:mb-6">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={hideInstructions}
@@ -598,18 +488,18 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
                   className="h-4 w-4 text-[#F77F00] rounded focus:ring-[#F77F00]"
                   disabled={isImporting}
                 />
-                <span className="text-gray-700 text-sm">
+                <span className={`text-gray-700 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                   Ne plus afficher ces instructions
                 </span>
               </label>
             </div>
 
-            {/* Boutons d'action */}
-            <div className="flex gap-3">
+            {/* Boutons */}
+            <div className="flex gap-2 md:gap-3">
               <button
                 onClick={handleClose}
                 disabled={isImporting}
-                className="flex-1 px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors font-medium"
+                className="flex-1 px-3 py-2 md:px-4 md:py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors font-medium text-xs md:text-sm"
               >
                 Annuler
               </button>
@@ -617,41 +507,29 @@ Treichville,Cocody,C3-001,DIALLO,Fatou,Fri Mar 15 1990 00:00:00 GMT+0000,Bouaké
               <button
                 onClick={handleSubmit}
                 disabled={!file || isImporting || !!validationError}
-                className="flex-1 px-4 py-3 bg-[#F77F00] text-white rounded-lg hover:bg-[#e46f00] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2 min-h-[44px]"
+                className="flex-1 px-3 py-2 md:px-4 md:py-3 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white rounded-lg hover:from-[#e46f00] hover:to-[#FF8C00] disabled:opacity-50 transition-colors font-medium text-xs md:text-sm flex items-center justify-center gap-2"
               >
                 {isImporting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    {mode === 'smart' ? 'Synchronisation...' : 'Importation...'}
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <span>{mode === 'smart' ? 'Sync...' : 'Import...'}</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-lg">{getModeIcon()}</span>
-                    {mode === 'smart' ? 'Synchroniser' : 'Importer'}
+                    <CloudArrowUpIcon className="w-4 h-4" />
+                    <span>{mode === 'smart' ? 'Synchroniser' : 'Importer'}</span>
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Pied de page avec informations supplémentaires */}
-          <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 rounded-b-xl">
-            <div className="text-xs text-gray-600 space-y-1">
-              <p className="flex items-center gap-2">
-                <span>💡</span>
-                <span>L'import peut prendre quelques minutes selon la taille du fichier</span>
-              </p>
-              {mode === 'smart' && (
-                <p className="flex items-center gap-2">
-                  <span>🔄</span>
-                  <span>La synchronisation conserve les données existantes</span>
-                </p>
-              )}
-              <p className="flex items-center gap-2">
-                <span>📄</span>
-                <span>Utilisez le format CSV pour les meilleures performances</span>
-              </p>
-            </div>
+          {/* Pied de page */}
+          <div className="border-t border-gray-200 bg-gray-50 px-4 md:px-6 py-2 md:py-3 rounded-b-xl">
+            <p className={`text-gray-600 flex items-center gap-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+              <InformationCircleIcon className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+              <span>L'import peut prendre quelques minutes selon la taille</span>
+            </p>
           </div>
         </motion.div>
       </div>

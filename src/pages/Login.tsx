@@ -1,33 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { loginUser, testApiConnection } from "../service/utilisateursService";
+import { useAuth } from "../hooks/useAuth";
+import { AuthService } from "../Services/api/auth";
+import { TokenService } from "../Services/storage/token";
+import { UserIcon, LockClosedIcon, ArrowRightIcon, WifiIcon, ServerIcon } from '@heroicons/react/24/outline';
 
 interface LoginFormData {
   NomUtilisateur: string;
   MotDePasse: string;
 }
 
-// Types d'erreurs possibles
 type LoginErrorType = 
-  | 'identifiants_invalides'
-  | 'utilisateur_introuvable'
-  | 'erreur_serveur'
-  | 'erreur_reseau'
-  | 'erreur_validation'
-  | 'compte_bloque'
+  | 'identifiants_invalides' 
+  | 'utilisateur_introuvable' 
+  | 'erreur_serveur' 
+  | 'erreur_reseau' 
+  | 'erreur_validation' 
+  | 'compte_bloque' 
   | '';
 
-type ApiStatus = 'verification' | 'en_ligne' | 'hors_ligne' | 'erreur_cors';
-
-interface ApiConnectionStatus {
-  status: ApiStatus;
-  message: string;
-  details?: string;
-}
+type ApiStatus = 'verification' | 'en_ligne' | 'hors_ligne';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { setAuth } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     NomUtilisateur: "",
     MotDePasse: ""
@@ -35,74 +32,52 @@ const Login: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [errorType, setErrorType] = useState<LoginErrorType>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [apiStatus, setApiStatus] = useState<ApiConnectionStatus>({
-    status: 'verification',
-    message: 'Vérification de la connexion au serveur...'
-  });
+  const [apiStatus, setApiStatus] = useState<ApiStatus>('verification');
   const [showPassword, setShowPassword] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
-  // Détection de l'appareil (mobile/desktop)
+  // Détection responsive
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkScreen = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 640);
+      setIsTablet(width >= 640 && width < 1024);
     };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
-  // Test de connexion API au chargement
+  // ✅ CORRECTION CRITIQUE - Vérification API sans boucle
   useEffect(() => {
     const checkApiConnection = async () => {
+      // Vérifier si on a un token
+      const token = TokenService.getToken();
+      
+      if (!token) {
+        // Pas de token = API considérée comme disponible
+        setApiStatus('en_ligne');
+        return;
+      }
+
       try {
-        const result = await testApiConnection();
-        
-        if (result.success) {
-          setApiStatus({
-            status: 'en_ligne',
-            message: 'Connecté au serveur',
-            details: result.details
-          });
-        } else {
-          setApiStatus({
-            status: 'hors_ligne',
-            message: 'Serveur inaccessible',
-            details: result.details
-          });
-        }
-      } catch (error: any) {
-        // Détecter les erreurs CORS spécifiques
-        if (error.message?.includes('CORS') || error.message?.includes('Network')) {
-          setApiStatus({
-            status: 'erreur_cors',
-            message: 'Erreur de configuration CORS',
-            details: 'Le serveur bloque les requêtes depuis cette origine'
-          });
-        } else {
-          setApiStatus({
-            status: 'hors_ligne',
-            message: 'Impossible de se connecter au serveur',
-            details: error.message
-          });
-        }
+        await AuthService.verifyToken();
+        setApiStatus('en_ligne');
+      } catch {
+        setApiStatus('hors_ligne');
       }
     };
-
+    
     checkApiConnection();
-  }, []);
+  }, []); // Une seule exécution
 
+  // ... (le reste du code reste identique)
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Effacer l'erreur quand l'utilisateur modifie le champ
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errorMessage) {
       setErrorMessage("");
       setErrorType('');
@@ -114,47 +89,26 @@ const Login: React.FC = () => {
     const password = formData.MotDePasse;
 
     if (!username) {
-      return {
-        valide: false,
-        erreur: "Le nom d'utilisateur est obligatoire",
-        type: 'erreur_validation'
+      return { 
+        valide: false, 
+        erreur: "Le nom d'utilisateur est obligatoire", 
+        type: 'erreur_validation' 
       };
     }
-
     if (!password) {
-      return {
-        valide: false,
-        erreur: "Le mot de passe est obligatoire",
-        type: 'erreur_validation'
+      return { 
+        valide: false, 
+        erreur: "Le mot de passe est obligatoire", 
+        type: 'erreur_validation' 
       };
     }
-
-    if (username.length < 3) {
-      return {
-        valide: false,
-        erreur: "Le nom d'utilisateur doit contenir au moins 3 caractères",
-        type: 'erreur_validation'
-      };
-    }
-
     if (password.length < 6) {
-      return {
-        valide: false,
-        erreur: "Le mot de passe doit contenir au moins 6 caractères",
-        type: 'erreur_validation'
+      return { 
+        valide: false, 
+        erreur: "Le mot de passe doit contenir au moins 6 caractères", 
+        type: 'erreur_validation' 
       };
     }
-
-    // Validation des caractères spéciaux (optionnel)
-    const usernameRegex = /^[a-zA-Z0-9._-]+$/;
-    if (!usernameRegex.test(username)) {
-      return {
-        valide: false,
-        erreur: "Le nom d'utilisateur contient des caractères non autorisés",
-        type: 'erreur_validation'
-      };
-    }
-
     return { valide: true };
   };
 
@@ -167,254 +121,138 @@ const Login: React.FC = () => {
       setErrorType(validation.type!);
       return;
     }
-    
-    // Vérifier si trop de tentatives
+
     if (attemptCount >= 5) {
-      setErrorMessage("Votre compte est temporairement bloqué. Réessayez dans 15 minutes.");
+      setErrorMessage("Trop de tentatives. Réessayez dans 15 minutes.");
       setErrorType('compte_bloque');
       return;
     }
-    
-    // Vérifier si l'API est en ligne - SOLUTION SIMPLIFIÉE
-    const isApiOnline = apiStatus.status === 'en_ligne';
-    if (!isApiOnline) {
-      setErrorMessage("Le serveur est actuellement inaccessible. Veuillez réessayer plus tard.");
-      setErrorType('erreur_serveur');
+
+    if (apiStatus !== 'en_ligne') {
+      setErrorMessage("Serveur inaccessible. Veuillez réessayer plus tard.");
+      setErrorType('erreur_reseau');
       return;
     }
-    
+
     setIsLoading(true);
     setErrorMessage("");
     setErrorType('');
 
     try {
-      const { token, utilisateur } = await loginUser(formData);
-      
-      // Stockage sécurisé des informations utilisateur
-      const userData = {
-        token,
-        role: utilisateur.Role,
-        nomUtilisateur: utilisateur.NomUtilisateur,
-        nomComplet: utilisateur.NomComplet,
-        agence: utilisateur.Agence,
-        email: utilisateur.Email,
-        userId: utilisateur.id.toString(),
-        loginTime: new Date().toISOString()
-      };
-
-      // Stockage dans localStorage
-      Object.entries(userData).forEach(([key, value]) => {
-        localStorage.setItem(key, value);
-      });
-
-      // Réinitialiser le compteur de tentatives après succès
-      setAttemptCount(0);
-
-      // Redirection avec un léger délai pour l'UX
-      setTimeout(() => {
-        navigate("/home");
-      }, 300);
-      
+      const response = await AuthService.login(formData);
+      setAuth(response.token, response.utilisateur.role, response.utilisateur);
+      navigate('/dashboard');
     } catch (err: any) {
       console.error("Erreur de connexion:", err);
-      
-      // Gestion des erreurs détaillées
-      let messageUtilisateur = "Erreur de connexion au serveur";
-      let typeErreur: LoginErrorType = 'erreur_serveur';
-      
-      // Incrémenter le compteur de tentatives échouées
       const nouvellesTentatives = attemptCount + 1;
       setAttemptCount(nouvellesTentatives);
-      
+
+      let messageUtilisateur = "Erreur de connexion";
+      let typeErreur: LoginErrorType = 'erreur_serveur';
+
       if (err.response) {
-        // Erreurs HTTP
         const status = err.response.status;
-        const data = err.response.data;
-        
         if (status === 401) {
-          // Authentification échouée
-          if (data.message?.toLowerCase().includes('utilisateur') || 
-              data.message?.toLowerCase().includes('user') ||
-              data.message?.toLowerCase().includes('not found')) {
-            messageUtilisateur = "Nom d'utilisateur introuvable";
-            typeErreur = 'utilisateur_introuvable';
-          } else if (data.message?.toLowerCase().includes('password') ||
-                    data.message?.toLowerCase().includes('mot de passe')) {
-            messageUtilisateur = "Mot de passe incorrect";
-            typeErreur = 'identifiants_invalides';
-          } else {
-            messageUtilisateur = "Identifiants invalides";
-            typeErreur = 'identifiants_invalides';
-          }
-          
-          // Avertissement après plusieurs tentatives
+          messageUtilisateur = "Nom d'utilisateur ou mot de passe incorrect";
+          typeErreur = 'identifiants_invalides';
           if (nouvellesTentatives >= 3) {
-            messageUtilisateur += `. Attention : ${5 - nouvellesTentatives} tentative(s) restante(s).`;
+            messageUtilisateur += ` (${5 - nouvellesTentatives} tentative(s) restante(s))`;
           }
         } else if (status === 403) {
-          messageUtilisateur = "Accès refusé. Votre compte est désactivé ou bloqué.";
-          typeErreur = 'compte_bloque';
-        } else if (status === 404) {
-          messageUtilisateur = "Service d'authentification indisponible";
-          typeErreur = 'erreur_serveur';
-        } else if (status === 429) {
-          messageUtilisateur = "Trop de tentatives. Veuillez réessayer dans quelques minutes.";
+          messageUtilisateur = "Compte désactivé. Contactez l'administrateur.";
           typeErreur = 'compte_bloque';
         } else if (status === 500) {
-          messageUtilisateur = "Erreur interne du serveur. Veuillez contacter l'administrateur.";
+          messageUtilisateur = "Erreur serveur. Contactez l'administrateur.";
           typeErreur = 'erreur_serveur';
-        } else if (status === 503) {
-          messageUtilisateur = "Service temporairement indisponible pour maintenance.";
-          typeErreur = 'erreur_serveur';
-        } else {
-          messageUtilisateur = data.message || `Erreur serveur (${status})`;
         }
       } else if (err.request) {
-        // Pas de réponse du serveur
-        messageUtilisateur = "Impossible de contacter le serveur. Vérifiez votre connexion internet.";
+        messageUtilisateur = "Impossible de contacter le serveur. Vérifiez votre connexion.";
         typeErreur = 'erreur_reseau';
-      } else if (err.message?.includes('CORS')) {
-        messageUtilisateur = "Erreur de configuration du serveur. Veuillez contacter le support technique.";
-        typeErreur = 'erreur_serveur';
-      } else if (err.message?.includes('timeout')) {
-        messageUtilisateur = "Délai d'attente dépassé. Le serveur met trop de temps à répondre.";
-        typeErreur = 'erreur_reseau';
-      } else if (err.message) {
-        messageUtilisateur = err.message;
-      }
-
-      // Si erreur réseau et que l'API n'est pas en ligne
-      if (typeErreur === 'erreur_reseau' && apiStatus.status !== 'en_ligne') {
-        messageUtilisateur = `Serveur inaccessible. ${apiStatus.message}`;
       }
 
       setErrorMessage(messageUtilisateur);
       setErrorType(typeErreur);
-      
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRetryConnection = async () => {
-    setApiStatus({
-      status: 'verification',
-      message: 'Nouvelle tentative de connexion...'
-    });
-    
-    try {
-      const result = await testApiConnection();
-      
-      if (result.success) {
-        setApiStatus({
-          status: 'en_ligne',
-          message: 'Connecté au serveur',
-          details: result.details
-        });
-      } else {
-        setApiStatus({
-          status: 'hors_ligne',
-          message: 'Serveur toujours inaccessible',
-          details: result.details
-        });
-      }
-    } catch (error: any) {
-      setApiStatus({
-        status: 'hors_ligne',
-        message: 'Échec de la reconnexion',
-        details: error.message
-      });
-    }
-  };
-
-  const getErrorIcon = () => {
-    switch (errorType) {
-      case 'utilisateur_introuvable':
-        return '👤';
-      case 'identifiants_invalides':
-        return '🔒';
-      case 'erreur_reseau':
-        return '📡';
-      case 'erreur_serveur':
-        return '🖥️';
-      case 'erreur_validation':
-        return '⚠️';
-      case 'compte_bloque':
-        return '🚫';
-      default:
-        return '❌';
-    }
-  };
-
-  const getErrorMessageStyle = () => {
-    const baseClasses = "px-4 py-3 rounded-2xl text-sm font-medium";
-    
-    switch (errorType) {
-      case 'utilisateur_introuvable':
-        return `${baseClasses} bg-blue-50 border border-blue-200 text-blue-800`;
-      case 'identifiants_invalides':
-        return `${baseClasses} bg-red-50 border border-red-200 text-red-800`;
-      case 'erreur_reseau':
-        return `${baseClasses} bg-yellow-50 border border-yellow-200 text-yellow-800`;
-      case 'erreur_serveur':
-        return `${baseClasses} bg-orange-50 border border-orange-200 text-orange-800`;
-      case 'erreur_validation':
-        return `${baseClasses} bg-purple-50 border border-purple-200 text-purple-800`;
-      case 'compte_bloque':
-        return `${baseClasses} bg-gray-100 border border-gray-300 text-gray-800`;
-      default:
-        return `${baseClasses} bg-gray-50 border border-gray-200 text-gray-800`;
-    }
+  const handleRetryConnection = () => {
+    window.location.reload();
   };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleForgotPassword = () => {
-    alert("Pour réinitialiser votre mot de passe, veuillez contacter votre administrateur système.");
+  const fillTestAccount = (username: string, password: string) => {
+    setFormData({ NomUtilisateur: username, MotDePasse: password });
   };
 
-  const getStatusColor = () => {
-    switch (apiStatus.status) {
-      case 'verification': return 'bg-yellow-100 text-yellow-800';
-      case 'en_ligne': return 'bg-green-100 text-green-800';
-      case 'erreur_cors': return 'bg-orange-100 text-orange-800';
-      case 'hors_ligne': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  // Classes responsives
+  const getIconSize = () => {
+    if (isMobile) return 'w-4 h-4';
+    if (isTablet) return 'w-5 h-5';
+    return 'w-6 h-6';
   };
 
-  const getStatusIcon = () => {
-    switch (apiStatus.status) {
-      case 'verification': return '🔄';
-      case 'en_ligne': return '✅';
-      case 'erreur_cors': return '⚠️';
-      case 'hors_ligne': return '❌';
-      default: return '❓';
-    }
+  const getTextSize = () => {
+    if (isMobile) return 'text-xs';
+    if (isTablet) return 'text-sm';
+    return 'text-base';
   };
 
-  // Solution simple pour vérifier si le bouton doit être désactivé
-  const isApiOnline = apiStatus.status === 'en_ligne';
-  const isLoginDisabled = isLoading || !isApiOnline;
+  const getInputSize = () => {
+    if (isMobile) return 'px-4 py-3 text-sm';
+    if (isTablet) return 'px-5 py-4';
+    return 'px-6 py-5';
+  };
+
+  const getButtonSize = () => {
+    if (isMobile) return 'py-3 text-sm';
+    if (isTablet) return 'py-4';
+    return 'py-5';
+  };
+
+  const getLogoSize = () => {
+    if (isMobile) return 'w-12 h-12';
+    if (isTablet) return 'w-16 h-16';
+    return 'w-20 h-20';
+  };
+
+  const getTitleSize = () => {
+    if (isMobile) return 'text-xl';
+    if (isTablet) return 'text-2xl';
+    return 'text-3xl';
+  };
+
+  const iconSize = getIconSize();
+  const textSize = getTextSize();
+  const inputSize = getInputSize();
+  const buttonSize = getButtonSize();
+  const logoSize = getLogoSize();
+  const titleSize = getTitleSize();
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col ${isMobile ? 'text-sm' : ''}`}>
-      {/* Barre de statut API - Responsive */}
-      <div className={`fixed top-0 left-0 right-0 z-50 py-2 px-4 text-center flex items-center justify-between ${getStatusColor()}`}>
+      {/* Barre de statut API */}
+      <div className={`fixed top-0 left-0 right-0 z-50 py-2 px-4 text-center flex items-center justify-between ${
+        apiStatus === 'en_ligne' ? 'bg-green-100 text-green-800' : 
+        apiStatus === 'verification' ? 'bg-yellow-100 text-yellow-800' : 
+        'bg-red-100 text-red-800'
+      }`}>
         <div className="flex items-center space-x-2 overflow-hidden">
-          <span className="flex-shrink-0">{getStatusIcon()}</span>
-          <span className={`truncate ${isMobile ? 'text-xs' : 'text-sm'}`}>
-            {apiStatus.message}
+          <WifiIcon className={`${iconSize} flex-shrink-0`} />
+          <span className={`truncate ${textSize}`}>
+            {apiStatus === 'en_ligne' && 'Serveur connecté'}
+            {apiStatus === 'verification' && 'Vérification du serveur...'}
+            {apiStatus === 'hors_ligne' && 'Serveur indisponible'}
           </span>
         </div>
-        
-        {apiStatus.status !== 'verification' && (
+        {apiStatus !== 'verification' && (
           <button 
             onClick={handleRetryConnection}
-            className={`${isMobile ? 'text-xs px-2 py-1' : 'text-xs px-3 py-1'} rounded bg-white bg-opacity-50 hover:bg-opacity-100 transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0`}
-            aria-label="Rafraîchir la connexion"
+            className={`${textSize} px-2 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-100 transition-all`}
           >
             Rafraîchir
           </button>
@@ -422,9 +260,9 @@ const Login: React.FC = () => {
       </div>
 
       {/* Espace pour la barre de statut */}
-      <div className="h-8"></div>
+      <div className="h-8 md:h-10"></div>
 
-      {/* HEADER - Responsive */}
+      {/* HEADER */}
       <header className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 md:px-8 lg:px-12 py-3">
           <div className="flex items-center space-x-2 md:space-x-4">
@@ -432,286 +270,208 @@ const Login: React.FC = () => {
               <img 
                 src="/logo-placeholder.jpeg" 
                 alt="Logo GESCARD" 
-                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16 md:w-20 md:h-20'} object-contain drop-shadow-sm`}
-                loading="eager"
+                className={`${logoSize} object-contain drop-shadow-sm`}
+                loading="eager" 
               />
-              <div className="absolute -top-1 -right-1 w-4 h-4 md:w-6 md:h-6 bg-[#F77F00] rounded-full border-2 border-white"></div>
+              <div className={`absolute -top-1 -right-1 ${isMobile ? 'w-3 h-3' : 'w-4 h-4 md:w-5 md:h-5'} bg-[#F77F00] rounded-full border-2 border-white`}></div>
             </div>
             <div>
               <h1 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight`}>
-                Gestion des Cartes
+                GESCARD
               </h1>
-              <p className={`text-[#F77F00] ${isMobile ? 'text-xs' : 'text-sm md:text-base'} font-semibold truncate max-w-[200px] md:max-w-none`}>
-                COORDINATION ABIDJAN NORD-COCODY
+              <p className={`text-[#F77F00] ${isMobile ? 'text-xs' : 'text-sm md:text-base'} font-semibold`}>
+                Gestion des Cartes
               </p>
             </div>
           </div>
-          
           <div className={`${isMobile ? 'hidden' : 'flex'} items-center space-x-2 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white px-4 py-2 rounded-full shadow-lg`}>
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium">GESCARD</span>
+            <ServerIcon className="w-4 h-4" />
+            <span className="text-sm font-medium">v2.0.0</span>
           </div>
         </div>
-        
-        <div className="flex h-2 w-full bg-gradient-to-r from-[#F77F00] via-[#2E8B57] to-[#0077B6]">
-          <div className="h-full bg-white/40 animate-pulse w-1/3"></div>
-        </div>
+        <div className="flex h-1 w-full bg-gradient-to-r from-[#F77F00] via-[#2E8B57] to-[#0077B6]"></div>
       </header>
 
-      {/* CONTENU PRINCIPAL - Responsive */}
+      {/* CONTENU PRINCIPAL */}
       <main className="flex-1 flex items-center justify-center px-3 md:px-6 lg:px-8 py-4 md:py-8">
         <div className="w-full max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
             transition={{ duration: 0.4 }}
             className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12'} items-center`}
           >
             {/* Zone gauche - Présentation */}
             <div className={`text-center ${isMobile ? '' : 'lg:text-left'} space-y-4 md:space-y-8`}>
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
+              <motion.div 
+                initial={{ opacity: 0, x: -30 }} 
+                animate={{ opacity: 1, x: 0 }} 
                 transition={{ delay: 0.2, duration: 0.6 }}
                 className="relative"
               >
                 <div className="bg-gradient-to-br from-orange-50 to-blue-50 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-xl border border-orange-100">
-                  <img
-                    src="/decorative-image.jpeg"
-                    alt="Interface moderne EGC"
-                    className={`w-full ${isMobile ? 'h-40' : 'h-48 md:h-64'} object-cover rounded-xl md:rounded-2xl shadow-lg transform hover:scale-[1.02] transition-transform duration-300 border-2 border-orange-200`}
-                    loading="lazy"
+                  <img 
+                    src="/decorative-image.jpeg" 
+                    alt="Interface GESCARD" 
+                    className={`w-full ${isMobile ? 'h-40' : 'h-48 md:h-64'} object-cover rounded-xl md:rounded-2xl shadow-lg border-2 border-orange-200`}
+                    loading="lazy" 
                   />
-                  
-                  <div className="absolute -top-2 -right-2 w-4 h-4 md:w-6 md:h-6 bg-[#F77F00] rounded-full animate-bounce shadow-lg"></div>
-                  <div className="absolute -bottom-2 -left-2 w-6 h-6 md:w-8 md:h-8 bg-[#FF9E40] rounded-full opacity-80 shadow-lg"></div>
-                  <div className="absolute top-4 -left-2 w-3 h-3 md:w-4 md:h-4 bg-[#FFB74D] rounded-full animate-pulse"></div>
                 </div>
               </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
                 transition={{ delay: 0.3, duration: 0.6 }}
                 className="space-y-3 md:space-y-6"
               >
-                <h2 className={`font-bold text-gray-900 leading-tight ${isMobile ? 'text-2xl' : 'text-3xl md:text-4xl lg:text-5xl'}`}>
-                  Bienvenue dans{" "}
+                <h2 className={`font-bold text-gray-900 leading-tight ${titleSize}`}>
+                  Bienvenue sur{" "}
                   <span className="bg-gradient-to-r from-[#F77F00] to-[#0077B6] bg-clip-text text-transparent">
                     GESCARD
                   </span>
                 </h2>
-                
-                <p className={`text-gray-600 leading-relaxed max-w-2xl ${isMobile ? 'text-sm' : 'text-lg md:text-xl'}`}>
-                  Votre solution <span className="font-semibold text-[#F77F00]">spécialisée</span> pour la gestion et la recherche rapide des cartes de la coordination.
+                <p className={`text-gray-600 leading-relaxed max-w-2xl ${textSize}`}>
+                  Solution complète pour la gestion et le suivi des cartes de la coordination.
                 </p>
-
                 <div className={`flex flex-wrap ${isMobile ? 'gap-2' : 'gap-3'} justify-center lg:justify-start`}>
                   {[
-                    { icon: "🔍", text: "Recherche Rapide" },
-                    { icon: "📊", text: "Gestion Centralisée" },
-                    { icon: "🔄", text: "Mise à Jour Instantanée" },
-                    { icon: "📈", text: "Statistiques Détaillées" }
+                    "Recherche rapide", 
+                    "Gestion centralisée", 
+                    "Mise à jour instantanée", 
+                    "Statistiques détaillées"
                   ].map((feature, index) => (
-                    <motion.span
-                      key={feature.text}
+                    <motion.span 
+                      key={feature}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.4 + index * 0.1 }}
-                      className={`bg-white/80 backdrop-blur-sm border border-orange-200 ${isMobile ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'} rounded-full font-medium text-gray-700 shadow-sm`}
+                      className={`bg-white/80 backdrop-blur-sm border border-orange-200 ${
+                        isMobile ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
+                      } rounded-full font-medium text-gray-700 shadow-sm`}
                     >
-                      {feature.icon} {feature.text}
+                      {feature}
                     </motion.span>
                   ))}
                 </div>
-
-                {/* Section d'information de connexion */}
-                {!isApiOnline && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-3 md:p-6 border border-orange-200"
-                  >
-                    <h4 className="font-semibold text-[#F77F00] mb-2 md:mb-3 text-base md:text-lg flex items-center">
-                      ⚠️ Information Connexion
-                    </h4>
-                    <div className={`text-gray-700 space-y-1 md:space-y-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      <p><strong>Statut:</strong> {
-                        apiStatus.status === 'verification' ? 'Vérification...' :
-                        apiStatus.status === 'en_ligne' ? 'En ligne' :
-                        apiStatus.status === 'hors_ligne' ? 'Hors ligne' :
-                        'Erreur CORS'
-                      }</p>
-                      <p><strong>Serveur:</strong> {import.meta.env.VITE_API_URL || 'Non configuré'}</p>
-                      <p><strong>Détails:</strong> {apiStatus.details || 'Aucun détail disponible'}</p>
-                    </div>
-                  </motion.div>
-                )}
               </motion.div>
             </div>
 
             {/* Zone droite - Formulaire */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
+            <motion.div 
+              initial={{ opacity: 0, x: 30 }} 
+              animate={{ opacity: 1, x: 0 }} 
               transition={{ delay: 0.3, duration: 0.6 }}
               className="relative"
             >
-              <div className={`bg-white/90 backdrop-blur-lg ${isMobile ? 'rounded-xl p-4' : 'rounded-3xl p-6 md:p-8 lg:p-10'} shadow-xl md:shadow-2xl border border-orange-100`}>
+              <div className={`bg-white/90 backdrop-blur-lg ${
+                isMobile ? 'rounded-xl p-4' : 'rounded-3xl p-6 md:p-8 lg:p-10'
+              } shadow-xl md:shadow-2xl border border-orange-100`}>
+                {/* En-tête du formulaire */}
                 <div className="text-center mb-6 md:mb-8">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
+                  <motion.div 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
                     transition={{ delay: 0.4, type: "spring" }}
-                    className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} bg-gradient-to-r from-[#F77F00] to-[#FF9E40] ${isMobile ? 'rounded-xl' : 'rounded-2xl'} flex items-center justify-center mx-auto mb-3 md:mb-4 shadow-lg`}
+                    className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} bg-gradient-to-r from-[#F77F00] to-[#FF9E40] ${
+                      isMobile ? 'rounded-xl' : 'rounded-2xl'
+                    } flex items-center justify-center mx-auto mb-3 md:mb-4 shadow-lg`}
                   >
-                    <span className={`${isMobile ? 'text-xl' : 'text-2xl'} text-white`}>🔐</span>
+                    <LockClosedIcon className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} text-white`} />
                   </motion.div>
                   <h3 className={`font-bold text-gray-900 mb-2 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>
-                    Accès Plateforme
+                    Connexion
                   </h3>
-                  <p className={`text-[#F77F00] font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>
-                    Gérez vos cartes en toute simplicité
+                  <p className={`text-[#F77F00] font-medium ${textSize}`}>
+                    Accédez à votre espace
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                  {/* Champ Nom d'utilisateur */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
+                <form onSubmit={handleSubmit} className={`${isMobile ? 'space-y-4' : isTablet ? 'space-y-5' : 'space-y-6'}`}>
+                  {/* Nom d'utilisateur */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
                     transition={{ delay: 0.5 }}
                   >
-                    <label 
-                      htmlFor="NomUtilisateur"
-                      className={`block font-semibold text-gray-700 mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                    >
-                      <span className="text-[#F77F00]">👤</span> Identifiant Coordination
+                    <label htmlFor="NomUtilisateur" className={`block font-semibold text-gray-700 mb-1 md:mb-2 ${textSize}`}>
+                      Nom d'utilisateur
                     </label>
                     <div className="relative">
+                      <UserIcon className={`absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 ${iconSize}`} />
                       <input
                         id="NomUtilisateur"
                         name="NomUtilisateur"
                         type="text"
                         value={formData.NomUtilisateur}
                         onChange={handleChange}
-                        placeholder="Votre identifiant de coordination"
-                        className={`w-full bg-gray-50 border border-gray-200 ${isMobile ? 'px-4 py-3 rounded-xl text-sm' : 'px-5 py-4 rounded-2xl'} focus:outline-none focus:ring-2 md:focus:ring-4 focus:ring-orange-100 focus:border-orange-400 transition-all duration-300 text-gray-800 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        placeholder="Votre identifiant"
+                        className={`w-full bg-gray-50 border border-gray-200 ${inputSize} pl-10 md:pl-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-400 transition-all duration-300`}
                         disabled={isLoading}
-                        aria-invalid={errorType === 'utilisateur_introuvable'}
-                        aria-describedby={errorType === 'utilisateur_introuvable' ? 'username-error' : undefined}
                         autoComplete="username"
                       />
-                      <div className="absolute right-3 md:right-4 top-1/2 transform -translate-y-1/2">
-                        <div className={`${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-[#F77F00] rounded-full animate-pulse`}></div>
-                      </div>
                     </div>
                   </motion.div>
 
-                  {/* Champ Mot de passe */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
+                  {/* Mot de passe */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
                     transition={{ delay: 0.6 }}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <label 
-                        htmlFor="MotDePasse"
-                        className={`block font-semibold text-gray-700 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                      >
-                        <span className="text-[#F77F00]">🔒</span> Mot de passe
+                    <div className="flex justify-between items-center mb-1 md:mb-2">
+                      <label htmlFor="MotDePasse" className={`block font-semibold text-gray-700 ${textSize}`}>
+                        Mot de passe
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        className={`text-[#F77F00] hover:text-[#e46f00] transition-colors ${isMobile ? 'text-xs' : 'text-xs md:text-sm'}`}
-                      >
-                        Mot de passe oublié ?
-                      </button>
                     </div>
                     <div className="relative">
+                      <LockClosedIcon className={`absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 ${iconSize}`} />
                       <input
                         id="MotDePasse"
                         name="MotDePasse"
                         type={showPassword ? "text" : "password"}
                         value={formData.MotDePasse}
                         onChange={handleChange}
-                        placeholder="Votre mot de passe sécurisé"
-                        className={`w-full bg-gray-50 border border-gray-200 ${isMobile ? 'px-4 py-3 rounded-xl text-sm pr-10' : 'px-5 py-4 rounded-2xl pr-12'} focus:outline-none focus:ring-2 md:focus:ring-4 focus:ring-orange-100 focus:border-orange-400 transition-all duration-300 text-gray-800 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        placeholder="Votre mot de passe"
+                        className={`w-full bg-gray-50 border border-gray-200 ${inputSize} pl-10 md:pl-12 pr-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-400 transition-all duration-300`}
                         disabled={isLoading}
-                        aria-invalid={errorType === 'identifiants_invalides'}
-                        aria-describedby={errorType === 'identifiants_invalides' ? 'password-error' : undefined}
                         autoComplete="current-password"
                       />
-                      <div className="absolute right-3 md:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={togglePasswordVisibility}
-                          className="text-gray-400 hover:text-[#F77F00] transition-colors"
-                          aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                        >
-                          {showPassword ? '🙈' : '👁️'}
-                        </button>
-                        <div className={`${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-[#FF9E40] rounded-full animate-pulse`}></div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={togglePasswordVisibility}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#F77F00] transition-colors"
+                      >
+                        {showPassword ? '🙈' : '👁️'}
+                      </button>
                     </div>
                   </motion.div>
 
                   {/* Message d'erreur */}
                   {errorMessage && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9 }} 
                       animate={{ opacity: 1, scale: 1 }}
-                      className={getErrorMessageStyle()}
+                      className={`px-4 py-3 rounded-xl text-sm font-medium ${
+                        errorType === 'identifiants_invalides' ? 'bg-red-50 border border-red-200 text-red-800' :
+                        errorType === 'erreur_reseau' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
+                        errorType === 'compte_bloque' ? 'bg-gray-100 border border-gray-300 text-gray-800' :
+                        'bg-orange-50 border border-orange-200 text-orange-800'
+                      }`}
                       role="alert"
-                      aria-live="assertive"
                     >
                       <div className="flex items-start">
-                        <span className={`${isMobile ? 'text-base mr-2' : 'text-lg mr-3'}`}>{getErrorIcon()}</span>
+                        <span className="mr-2">⚠</span>
                         <div className="flex-1">
-                          <strong className={`block mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                            {errorType === 'utilisateur_introuvable' && "Utilisateur introuvable"}
-                            {errorType === 'identifiants_invalides' && "Authentification échouée"}
-                            {errorType === 'erreur_reseau' && "Problème de connexion"}
-                            {errorType === 'erreur_serveur' && "Erreur serveur"}
-                            {errorType === 'erreur_validation' && "Validation requise"}
-                            {errorType === 'compte_bloque' && "Compte bloqué"}
-                            {!errorType && "Erreur de connexion"}
-                          </strong>
-                          <p className={`mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>{errorMessage}</p>
-                          
-                          {/* Conseils supplémentaires selon le type d'erreur */}
-                          {errorType === 'utilisateur_introuvable' && (
-                            <p className="mt-2 text-xs opacity-75">
-                              Vérifiez votre nom d'utilisateur ou contactez l'administrateur.
-                            </p>
-                          )}
-                          
+                          <p>{errorMessage}</p>
                           {errorType === 'identifiants_invalides' && attemptCount >= 3 && (
-                            <p className={`mt-2 ${isMobile ? 'text-xs' : 'text-xs'} font-semibold text-red-600`}>
-                              ⚠️ {5 - attemptCount} tentative(s) restante(s) avant blocage temporaire
+                            <p className="mt-1 text-xs font-semibold">
+                              {5 - attemptCount} tentative(s) restante(s)
                             </p>
                           )}
-                          
-                          {errorType === 'compte_bloque' && (
-                            <p className="mt-2 text-xs">
-                              Contactez votre administrateur pour débloquer votre compte.
-                            </p>
-                          )}
-                          
                           {errorType === 'erreur_reseau' && (
-                            <div className="mt-2 space-y-1 text-xs">
-                              <p>Vérifiez :</p>
-                              <ul className="list-disc pl-4">
-                                <li>Votre connexion internet</li>
-                                <li>Que le serveur est en ligne</li>
-                              </ul>
-                            </div>
-                          )}
-                          
-                          {(errorType === 'erreur_serveur' || errorMessage.includes('CORS')) && (
-                            <p className="mt-2 text-xs">
-                              Contactez le support technique pour résoudre ce problème.
+                            <p className="mt-1 text-xs">
+                              Vérifiez votre connexion internet
                             </p>
                           )}
                         </div>
@@ -719,98 +479,99 @@ const Login: React.FC = () => {
                     </motion.div>
                   )}
 
-                  {/* Bouton de soumission */}
+                  {/* Bouton de connexion */}
                   <motion.button
                     type="submit"
-                    disabled={isLoginDisabled}
+                    disabled={isLoading || apiStatus !== 'en_ligne'}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7 }}
-                    whileHover={{ scale: isLoginDisabled ? 1 : 1.02 }}
+                    whileHover={{ scale: (isLoading || apiStatus !== 'en_ligne') ? 1 : 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`w-full font-bold ${isMobile ? 'py-3 rounded-xl text-sm' : 'py-4 rounded-2xl'} shadow-lg transition-all duration-300 flex items-center justify-center ${
-                      isLoginDisabled
-                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white hover:shadow-xl hover:from-[#e46f00] hover:to-[#FF8C00] hover:shadow-orange-200'
+                    className={`w-full font-bold ${buttonSize} rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
+                      isLoading || apiStatus !== 'en_ligne' 
+                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white hover:shadow-xl'
                     }`}
-                    aria-busy={isLoading}
                   >
                     {isLoading ? (
                       <>
                         <div className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} border-2 border-white border-t-transparent rounded-full animate-spin mr-2`}></div>
-                        <span>Connexion en cours...</span>
+                        <span>Connexion...</span>
                       </>
-                    ) : !isApiOnline ? (
+                    ) : apiStatus !== 'en_ligne' ? (
                       <>
-                        <span className="mr-2">🔴</span>
+                        <WifiIcon className={`${iconSize} mr-2`} />
                         <span>Serveur indisponible</span>
                       </>
                     ) : (
                       <>
-                        <span className="mr-2">📋</span>
                         <span>Se connecter</span>
+                        <ArrowRightIcon className={`${iconSize} ml-2`} />
                       </>
                     )}
                   </motion.button>
 
                   {/* Indicateur de tentatives */}
-                  {attemptCount > 0 && (
-                    <div className={`text-center ${isMobile ? 'text-xs' : 'text-sm'} text-gray-500`}>
-                      Tentatives de connexion : {attemptCount} / 5
+                  {attemptCount > 0 && attemptCount < 5 && (
+                    <div className={`text-center ${textSize} text-gray-500`}>
+                      Tentatives : {attemptCount} / 5
                     </div>
                   )}
 
-                  {/* Message d'information */}
-                  <div className={`text-center ${isMobile ? 'text-xs' : 'text-sm'} text-gray-500 pt-2`}>
-                    <p>En cas de difficultés, contactez le support technique.</p>
+                  {/* Support */}
+                  <div className={`text-center ${textSize} text-gray-500 pt-2`}>
+                    <p>Support : contact@gescard.com</p>
                   </div>
                 </form>
 
-                {/* Information de débogage (seulement en développement) */}
+                {/* Comptes de test (développement uniquement) */}
                 {import.meta.env.DEV && (
-                  <div className={`mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200 ${isMobile ? 'text-xs' : ''}`}>
-                    <details className="text-gray-600">
-                      <summary className="cursor-pointer font-medium">Informations de débogage</summary>
-                      <div className={`mt-2 space-y-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
-                        <p><strong>VITE_API_URL:</strong> {import.meta.env.VITE_API_URL}</p>
-                        <p><strong>Environnement:</strong> {import.meta.env.MODE}</p>
-                        <p><strong>Appareil:</strong> {isMobile ? 'Mobile' : 'Desktop'} ({window.innerWidth}px)</p>
-                        <p><strong>Status API:</strong> {apiStatus.status}</p>
-                        <p><strong>Tentatives:</strong> {attemptCount}</p>
-                        <p><strong>Erreur Type:</strong> {errorType || 'Aucune'}</p>
-                      </div>
-                    </details>
+                  <div className={`mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200 ${textSize}`}>
+                    <p className="font-medium mb-2">Comptes de test :</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => fillTestAccount('UFHB02', '123456')}
+                        className="p-2 bg-orange-100 hover:bg-orange-200 rounded text-xs"
+                      >
+                        Admin
+                      </button>
+                      <button 
+                        onClick={() => fillTestAccount('UFHB01', '123456')}
+                        className="p-2 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+                      >
+                        Gestionnaire
+                      </button>
+                      <button 
+                        onClick={() => fillTestAccount('UFHB06', '123456')}
+                        className="p-2 bg-green-100 hover:bg-green-200 rounded text-xs"
+                      >
+                        Chef d'équipe
+                      </button>
+                      <button 
+                        onClick={() => fillTestAccount('UFHB05', '123456')}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded text-xs"
+                      >
+                        Opérateur
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Effets décoratifs */}
-              {!isMobile && (
-                <>
-                  <div className="absolute -z-10 top-4 -right-4 w-28 h-28 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] rounded-3xl opacity-30 blur-xl"></div>
-                  <div className="absolute -z-10 -bottom-4 -left-4 w-20 h-20 bg-[#FFB74D] rounded-3xl opacity-40 blur-lg"></div>
-                </>
-              )}
             </motion.div>
           </motion.div>
         </div>
       </main>
 
-      {/* FOOTER - Responsive */}
+      {/* FOOTER */}
       <footer className="bg-white/80 backdrop-blur-md border-t border-orange-100 py-3 md:py-6">
         <div className="text-center">
           <p className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>
-            © 2025 <span className="font-bold text-[#F77F00]">GestiondesCartes (GESCARD)</span> – 
-            <span className="text-gray-500"> Solution de gestion des cartes</span>
+            © 2025 <span className="font-bold text-[#F77F00]">GESCARD</span> – <span className="text-gray-500">Gestion des Cartes</span>
           </p>
-          <div className={`flex flex-wrap justify-center ${isMobile ? 'gap-x-2 gap-y-1 mt-1 text-xs' : 'gap-x-4 gap-y-1 mt-2 text-xs md:text-sm'}`}>
-            <span className="text-[#F77F00]">Base de données: PostgreSQL</span>
-            <span className="text-[#F77F00]">Backend: Node.js/Express</span>
-            <span className="text-[#F77F00]">Frontend: React/TypeScript</span>
-          </div>
-          <div className={`${isMobile ? 'mt-1 text-xs' : 'mt-2 text-xs md:text-sm'} text-gray-500`}>
-            Version 1.0.0 • Sécurisé par HTTPS • Optimisé pour mobile & desktop
-          </div>
+          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-500 mt-1`}>
+            Version 2.0.0 • Coordination Abidjan Nord-Cocody
+          </p>
         </div>
       </footer>
     </div>

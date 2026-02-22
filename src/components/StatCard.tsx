@@ -1,12 +1,21 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { 
+  ArrowTrendingUpIcon, 
+  ArrowTrendingDownIcon,
+  SparklesIcon,
+  ChartBarIcon,
+  UserIcon,
+  DocumentTextIcon,
+  BuildingOfficeIcon
+} from '@heroicons/react/24/outline';
 
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
   color?: "orange" | "blue" | "green" | "red" | "purple";
-  icon?: string;
+  icon?: React.ReactNode;
   size?: "sm" | "md" | "lg";
   variant?: "solid" | "gradient" | "outline";
   trend?: {
@@ -14,6 +23,7 @@ interface StatCardProps {
     isPositive: boolean;
   };
   loading?: boolean;
+  onClick?: () => void;
 }
 
 const StatCard: React.FC<StatCardProps> = ({ 
@@ -25,8 +35,22 @@ const StatCard: React.FC<StatCardProps> = ({
   size = "md",
   variant = "solid",
   trend,
-  loading = false
+  loading = false,
+  onClick
 }) => {
+  
+  // Responsive
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Configuration des couleurs
   const colorConfig = {
     orange: {
@@ -41,7 +65,7 @@ const StatCard: React.FC<StatCardProps> = ({
     },
     green: {
       solid: "bg-green-50 border-green-200 text-green-800",
-      gradient: "bg-gradient-to-br from-[#2E8B57] to-[#0077B6] text-white",
+      gradient: "bg-gradient-to-br from-[#2E8B57] to-[#3CB371] text-white",
       outline: "bg-white border-2 border-[#2E8B57] text-[#2E8B57]"
     },
     red: {
@@ -56,101 +80,118 @@ const StatCard: React.FC<StatCardProps> = ({
     }
   };
 
-  // Configuration des tailles
+  // Configuration des tailles responsive
   const sizeConfig = {
     sm: {
-      padding: "p-4",
-      title: "text-xs font-medium",
-      value: "text-xl font-bold",
-      subtitle: "text-xs",
-      icon: "text-lg"
+      padding: isMobile ? "p-3" : "p-4",
+      title: isMobile ? "text-xs font-medium" : "text-xs font-medium",
+      value: isMobile ? "text-lg font-bold" : "text-xl font-bold",
+      subtitle: isMobile ? "text-xs" : "text-xs",
+      icon: isMobile ? "w-5 h-5" : "w-6 h-6",
+      gap: isMobile ? "gap-1.5" : "gap-2"
     },
     md: {
-      padding: "p-6",
-      title: "text-sm font-semibold",
-      value: "text-2xl font-bold",
-      subtitle: "text-sm",
-      icon: "text-2xl"
+      padding: isMobile ? "p-4" : "p-6",
+      title: isMobile ? "text-sm font-semibold" : "text-sm font-semibold",
+      value: isMobile ? "text-xl font-bold" : "text-2xl font-bold",
+      subtitle: isMobile ? "text-xs" : "text-sm",
+      icon: isMobile ? "w-6 h-6" : "w-8 h-8",
+      gap: isMobile ? "gap-2" : "gap-3"
     },
     lg: {
-      padding: "p-8",
-      title: "text-base font-semibold",
-      value: "text-3xl font-bold",
-      subtitle: "text-base",
-      icon: "text-3xl"
+      padding: isMobile ? "p-5" : "p-8",
+      title: isMobile ? "text-base font-semibold" : "text-base font-semibold",
+      value: isMobile ? "text-2xl font-bold" : "text-3xl font-bold",
+      subtitle: isMobile ? "text-sm" : "text-base",
+      icon: isMobile ? "w-7 h-7" : "w-9 h-9",
+      gap: isMobile ? "gap-2" : "gap-4"
     }
   };
 
-  const { padding, title: titleSize, value: valueSize, subtitle: subtitleSize, icon: iconSize } = sizeConfig[size];
+  const currentSize = sizeConfig[size];
   const colorStyles = colorConfig[color][variant];
+
+  // Icône par défaut selon la couleur
+  const getDefaultIcon = () => {
+    switch (color) {
+      case 'orange': return <ChartBarIcon className={currentSize.icon} />;
+      case 'blue': return <DocumentTextIcon className={currentSize.icon} />;
+      case 'green': return <BuildingOfficeIcon className={currentSize.icon} />;
+      case 'red': return <UserIcon className={currentSize.icon} />;
+      case 'purple': return <SparklesIcon className={currentSize.icon} />;
+      default: return <ChartBarIcon className={currentSize.icon} />;
+    }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ 
-        scale: loading ? 1 : 1.02,
-        y: -2
-      }}
+      whileHover={!loading && onClick ? { scale: 1.02, y: -2 } : {}}
+      whileTap={!loading && onClick ? { scale: 0.98 } : {}}
+      onClick={onClick}
       className={`
-        rounded-2xl shadow-lg transition-all duration-300 border
-        ${padding} ${colorStyles}
+        rounded-xl md:rounded-2xl shadow-lg transition-all duration-300 border
+        ${currentSize.padding} ${colorStyles}
         ${loading ? 'opacity-70' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
       `}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
+      <div className={`flex items-start justify-between ${currentSize.gap}`}>
+        <div className="flex-1 min-w-0">
           {/* Titre */}
-          <h3 className={`${titleSize} mb-2 opacity-90`}>
+          <h3 className={`${currentSize.title} mb-1 md:mb-2 opacity-90 truncate`}>
             {title}
           </h3>
           
           {/* Valeur */}
           {loading ? (
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 border-2 ${
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className={`w-4 h-4 md:w-5 md:h-5 border-2 ${
                 variant === "gradient" ? "border-white" : "border-current"
-              } border-t-transparent rounded-full animate-spin`}></div>
-              <span className={valueSize}>Chargement...</span>
+              } border-t-transparent rounded-full animate-spin`} />
+              <span className={currentSize.value}>Chargement...</span>
             </div>
           ) : (
-            <p className={`${valueSize} mb-1`}>
-              {value}
+            <p className={`${currentSize.value} mb-1 truncate`}>
+              {typeof value === 'number' ? value.toLocaleString() : value}
             </p>
           )}
           
           {/* Sous-titre */}
           {subtitle && (
-            <p className={`${subtitleSize} opacity-80 mt-1`}>
+            <p className={`${currentSize.subtitle} opacity-80 mt-0.5 md:mt-1 truncate`}>
               {subtitle}
             </p>
           )}
           
-          {/* Trend indicator */}
+          {/* Indicateur de tendance */}
           {trend && !loading && (
-            <div className={`flex items-center gap-1 mt-2 text-sm ${
+            <div className={`flex items-center gap-1 mt-1 md:mt-2 text-xs md:text-sm ${
               trend.isPositive ? 'text-green-600' : 'text-red-600'
             }`}>
-              <span>{trend.isPositive ? '↗' : '↘'}</span>
-              <span>{trend.value}%</span>
+              {trend.isPositive ? (
+                <ArrowTrendingUpIcon className="w-3 h-3 md:w-4 md:h-4" />
+              ) : (
+                <ArrowTrendingDownIcon className="w-3 h-3 md:w-4 md:h-4" />
+              )}
+              <span className="font-medium">{trend.value}%</span>
             </div>
           )}
         </div>
         
         {/* Icône */}
-        {icon && (
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className={`
-              ${iconSize} opacity-90
-              ${variant === "gradient" ? '' : 'opacity-70'}
-            `}
-          >
-            {icon}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className={`
+            flex-shrink-0
+            ${variant === "gradient" ? '' : 'opacity-70'}
+          `}
+        >
+          {icon || getDefaultIcon()}
+        </motion.div>
       </div>
 
       {/* Barre de progression décorative */}
@@ -158,14 +199,55 @@ const StatCard: React.FC<StatCardProps> = ({
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: "100%" }}
-          transition={{ delay: 0.5, duration: 1 }}
-          className="h-1 bg-white/30 rounded-full mt-4 overflow-hidden"
+          transition={{ delay: 0.5, duration: 0.8 }}
+          className="h-1 bg-white/30 rounded-full mt-3 md:mt-4 overflow-hidden"
         >
-          <div className="h-full bg-white/50 animate-pulse w-1/3"></div>
+          <div className="h-full bg-white/50 animate-pulse w-1/3 rounded-full" />
         </motion.div>
       )}
     </motion.div>
   );
 };
+
+// Variantes préconfigurées
+export const SmallStatCard: React.FC<Omit<StatCardProps, 'size'>> = (props) => (
+  <StatCard size="sm" {...props} />
+);
+
+export const MediumStatCard: React.FC<Omit<StatCardProps, 'size'>> = (props) => (
+  <StatCard size="md" {...props} />
+);
+
+export const LargeStatCard: React.FC<Omit<StatCardProps, 'size'>> = (props) => (
+  <StatCard size="lg" {...props} />
+);
+
+// Cartes spécifiques
+export const TotalCartesCard: React.FC<Omit<StatCardProps, 'title' | 'color' | 'icon'>> = (props) => (
+  <StatCard 
+    title="Total des Cartes" 
+    color="orange" 
+    icon={<DocumentTextIcon />}
+    {...props} 
+  />
+);
+
+export const CartesDelivreesCard: React.FC<Omit<StatCardProps, 'title' | 'color' | 'icon'>> = (props) => (
+  <StatCard 
+    title="Cartes Délivrées" 
+    color="blue" 
+    icon={<ChartBarIcon />}
+    {...props} 
+  />
+);
+
+export const CartesEnAttenteCard: React.FC<Omit<StatCardProps, 'title' | 'color' | 'icon'>> = (props) => (
+  <StatCard 
+    title="Cartes en Attente" 
+    color="green" 
+    icon={<BuildingOfficeIcon />}
+    {...props} 
+  />
+);
 
 export default StatCard;

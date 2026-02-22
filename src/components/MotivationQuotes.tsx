@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ChevronLeftIcon, 
+  ChevronRightIcon,
+  SparklesIcon,
+  LightBulbIcon
+} from '@heroicons/react/24/outline';
 
 interface MotivationQuotesProps {
-  isMobile?: boolean; // ✅ Ajouter cette interface
+  isMobile?: boolean;
 }
 
 const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false }) => {
@@ -10,16 +16,16 @@ const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false })
   const [isPaused, setIsPaused] = useState(false);
   
   const quotes = [
-    { text: "« Ensemble, allons plus loin. »", emoji: "🚀" },
-    { text: "« Chaque carte distribuée rapproche notre objectif. »", emoji: "🎴" },
-    { text: "« Votre engagement fait la différence. »", emoji: "⭐" },
-    { text: "« Restons concentrés, restons efficaces. »", emoji: "🎯" },
-    { text: "« Une équime soudée réussit toujours. »", emoji: "🤝" },
-    { text: "« Le professionnalisme est notre force. »", emoji: "💼" },
-    { text: "« Aujourd'hui, faisons mieux qu'hier. »", emoji: "📈" },
-    { text: "« Petit effort, grand résultat. »", emoji: "💪" },
-    { text: "« L'excellence est un choix quotidien. »", emoji: "🏆" },
-    { text: "« Chaque détail compte pour la réussite. »", emoji: "🔍" }
+    { text: "« Ensemble, allons plus loin. »" },
+    { text: "« Chaque carte distribuée rapproche notre objectif. »" },
+    { text: "« Votre engagement fait la différence. »" },
+    { text: "« Restons concentrés, restons efficaces. »" },
+    { text: "« Une équipe soudée réussit toujours. »" },
+    { text: "« Le professionnalisme est notre force. »" },
+    { text: "« Aujourd'hui, faisons mieux qu'hier. »" },
+    { text: "« Petit effort, grand résultat. »" },
+    { text: "« L'excellence est un choix quotidien. »" },
+    { text: "« Chaque détail compte pour la réussite. »" }
   ];
 
   useEffect(() => {
@@ -27,7 +33,7 @@ const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false })
     
     const quoteTimer = setInterval(() => {
       setQuoteIndex((prev) => (prev + 1) % quotes.length);
-    }, 8000); // 8 secondes par citation
+    }, 8000);
     
     return () => clearInterval(quoteTimer);
   }, [quotes.length, isPaused]);
@@ -35,35 +41,41 @@ const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false })
   const handlePrevious = () => {
     setQuoteIndex((prev) => (prev - 1 + quotes.length) % quotes.length);
     setIsPaused(true);
-    setTimeout(() => setIsPaused(false), 15000); // Reprendre après 15s
+    setTimeout(() => setIsPaused(false), 15000);
   };
 
   const handleNext = () => {
     setQuoteIndex((prev) => (prev + 1) % quotes.length);
     setIsPaused(true);
-    setTimeout(() => setIsPaused(false), 15000); // Reprendre après 15s
+    setTimeout(() => setIsPaused(false), 15000);
   };
 
   return (
-    <div className={`bg-gradient-to-r from-[#2E8B57] to-[#0077B6] text-white ${
-      isMobile ? 'py-2' : 'py-3'
-    }`}>
-      <div className={`${isMobile ? 'px-3' : 'container mx-auto px-6'}`}>
-        <div className="flex items-center justify-between gap-3">
-          {/* Bouton précédent - visible seulement sur desktop */}
-          {!isMobile && (
-            <motion.button
-              onClick={handlePrevious}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-              aria-label="Citation précédente"
-              title="Citation précédente"
-            >
-              <span className="text-lg">◀</span>
-            </motion.button>
-          )}
+    <div className={`relative bg-gradient-to-r from-[#2E8B57] to-[#0077B6] text-white ${
+      isMobile ? 'py-2' : 'py-3 md:py-4'
+    } overflow-hidden`}>
+      
+      {/* Éléments décoratifs */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-0 left-0 w-20 h-20 bg-white rounded-full filter blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-20 h-20 bg-white rounded-full filter blur-3xl"></div>
+      </div>
+      
+      <div className={`${isMobile ? 'px-3' : 'container mx-auto px-4 md:px-6'} relative z-10`}>
+        <div className="flex items-center justify-between gap-2 md:gap-4">
+          
+          {/* Bouton précédent */}
+          <motion.button
+            onClick={handlePrevious}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className={`${isMobile ? 'p-1' : 'p-1.5 md:p-2'} rounded-full bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50`}
+            aria-label="Citation précédente"
+          >
+            <ChevronLeftIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          </motion.button>
 
+          {/* Contenu principal */}
           <div className="flex-1">
             <AnimatePresence mode="wait">
               <motion.div
@@ -74,40 +86,38 @@ const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false })
                 transition={{ duration: 0.4 }}
                 className="text-center"
               >
-                <div className="flex flex-col items-center gap-2">
-                  {/* Indicateur de progression */}
+                <div className="flex flex-col items-center gap-1 md:gap-2">
+                  
+                  {/* Indicateurs de progression */}
                   <div className="flex items-center justify-center gap-1">
                     {quotes.map((_, index) => (
                       <div
                         key={index}
-                        className={`h-1 rounded-full transition-all duration-300 ${
+                        className={`h-0.5 md:h-1 rounded-full transition-all duration-300 ${
                           index === quoteIndex 
-                            ? 'bg-white w-4' 
-                            : 'bg-white/40 w-1'
+                            ? 'bg-white w-3 md:w-4' 
+                            : 'bg-white/30 w-1 md:w-1'
                         }`}
                       />
                     ))}
                   </div>
                   
-                  <div className="flex items-center justify-center gap-3">
-                    <span className={`${isMobile ? 'text-lg' : 'text-xl'} animate-pulse`}>
-                      {quotes[quoteIndex].emoji}
-                    </span>
+                  {/* Citation avec icônes décoratives */}
+                  <div className="flex items-center justify-center gap-2 md:gap-4">
+                    <SparklesIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-white/70`} />
                     <p className={`font-medium italic ${
                       isMobile 
-                        ? 'text-sm md:text-base' 
-                        : 'text-base md:text-lg'
-                    }`}>
+                        ? 'text-xs md:text-sm' 
+                        : 'text-sm md:text-base lg:text-lg'
+                    } max-w-2xl`}>
                       {quotes[quoteIndex].text}
                     </p>
-                    <span className={`${isMobile ? 'text-lg' : 'text-xl'} animate-pulse`}>
-                      {quotes[quoteIndex].emoji}
-                    </span>
+                    <SparklesIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-white/70`} />
                   </div>
                   
-                  {/* Indicateur de numéro */}
+                  {/* Compteur */}
                   {!isMobile && (
-                    <div className="text-xs text-white/70">
+                    <div className="text-xs text-white/60">
                       {quoteIndex + 1} / {quotes.length}
                     </div>
                   )}
@@ -116,59 +126,34 @@ const MotivationQuotes: React.FC<MotivationQuotesProps> = ({ isMobile = false })
             </AnimatePresence>
           </div>
 
-          {/* Bouton suivant - visible seulement sur desktop */}
-          {!isMobile && (
-            <motion.button
-              onClick={handleNext}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-              aria-label="Citation suivante"
-              title="Citation suivante"
-            >
-              <span className="text-lg">▶</span>
-            </motion.button>
-          )}
+          {/* Bouton suivant */}
+          <motion.button
+            onClick={handleNext}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className={`${isMobile ? 'p-1' : 'p-1.5 md:p-2'} rounded-full bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50`}
+            aria-label="Citation suivante"
+          >
+            <ChevronRightIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          </motion.button>
         </div>
         
-        {/* Boutons de navigation mobile */}
+        {/* Navigation mobile supplémentaire */}
         {isMobile && (
-          <div className="flex items-center justify-center gap-4 mt-2">
-            <motion.button
-              onClick={handlePrevious}
-              whileTap={{ scale: 0.9 }}
-              className="p-1 rounded-full bg-white/20"
-              aria-label="Précédent"
-            >
-              <span className="text-base">◀</span>
-            </motion.button>
-            
-            <div className="text-xs text-white/70">
+          <div className="flex items-center justify-center mt-1">
+            <div className="text-xs text-white/60">
               {quoteIndex + 1} / {quotes.length}
             </div>
-            
-            <motion.button
-              onClick={handleNext}
-              whileTap={{ scale: 0.9 }}
-              className="p-1 rounded-full bg-white/20"
-              aria-label="Suivant"
-            >
-              <span className="text-base">▶</span>
-            </motion.button>
           </div>
         )}
         
-        {/* Instructions */}
+        {/* Astuce */}
         {!isMobile && (
-          <div className="text-xs text-white/60 text-center mt-2">
-            💡 Les citations changent automatiquement. Cliquez pour naviguer.
+          <div className="text-xs text-white/50 text-center mt-2 flex items-center justify-center gap-1">
+            <LightBulbIcon className="w-3 h-3" />
+            <span>Les citations changent automatiquement toutes les 8 secondes</span>
           </div>
         )}
-      </div>
-      
-      {/* Élément décoratif */}
-      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 opacity-20">
-        <span className="text-2xl">✨</span>
       </div>
     </div>
   );

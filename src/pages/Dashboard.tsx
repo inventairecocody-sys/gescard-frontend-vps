@@ -1,17 +1,35 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
-import cartesService from "../service/CartesService";
-import type { StatistiquesGlobales, StatistiqueSite } from "../service/CartesService";
+import { useAuth } from '../hooks/useAuth';
+import { StatistiquesService } from '../Services/api/statistiques';
+
+// Types pour les données du dashboard (spécifiques à ce composant)
+interface StatistiquesGlobalesData {
+  total: number;
+  retires: number;
+  restants: number;
+}
+
+interface StatistiqueSiteData {
+  site: string;
+  total: number;
+  delivrees: number;
+  enAttente: number;
+  retires: number;
+  restants: number;
+}
 
 const Dashboard: React.FC = () => {
-  const [statistiquesGlobales, setStatistiquesGlobales] = useState<StatistiquesGlobales>({
+  const { user } = useAuth();
+  
+  const [statistiquesGlobales, setStatistiquesGlobales] = useState<StatistiquesGlobalesData>({
     total: 0,
     retires: 0,
     restants: 0
   });
   
-  const [statistiquesSites, setStatistiquesSites] = useState<StatistiqueSite[]>([]);
+  const [statistiquesSites, setStatistiquesSites] = useState<StatistiqueSiteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState<string>("");
@@ -19,7 +37,6 @@ const Dashboard: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [refreshCount, setRefreshCount] = useState(0);
   
-  const role = localStorage.getItem("role") || "";
   const token = localStorage.getItem("token") || "";
 
   // Détection responsive
@@ -87,8 +104,8 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const CarteSite: React.FC<{ data: StatistiqueSite; index: number }> = ({ data, index }) => {
-    const pourcentage = data.total > 0 ? Math.round((data.retires / data.total) * 100) : 0;
+  const CarteSite: React.FC<{ data: StatistiqueSiteData; index: number }> = ({ data, index }) => {
+    const pourcentage = data.total > 0 ? Math.round((data.delivrees / data.total) * 100) : 0;
     
     return (
       <motion.div
@@ -121,19 +138,19 @@ const Dashboard: React.FC = () => {
           
           <div className="flex justify-between items-center bg-green-50 rounded-lg p-2 md:p-3">
             <span className={`text-gray-700 font-medium ${isMobile ? 'text-sm' : ''}`}>
-              Cartes retirées
+              Cartes délivrées
             </span>
             <span className={`text-[#2E8B57] font-bold ${isMobile ? 'text-base' : 'text-lg'}`}>
-              {data.retires.toLocaleString()}
+              {data.delivrees.toLocaleString()}
             </span>
           </div>
           
           <div className="flex justify-between items-center bg-orange-50 rounded-lg p-2 md:p-3">
             <span className={`text-gray-700 font-medium ${isMobile ? 'text-sm' : ''}`}>
-              Cartes restantes
+              En attente
             </span>
             <span className={`text-[#F77F00] font-bold ${isMobile ? 'text-base' : 'text-lg'}`}>
-              {data.restants.toLocaleString()}
+              {data.enAttente.toLocaleString()}
             </span>
           </div>
         </div>
@@ -177,12 +194,28 @@ const Dashboard: React.FC = () => {
 
       console.log('🔄 Chargement des statistiques...');
       
-      const { globales, sites } = force 
-        ? await cartesService.forceRefreshAndGetStats()
-        : await cartesService.refreshStatistiques();
+      // Récupérer les données depuis le vrai service
+      const globales = await StatistiquesService.getStatistiquesGlobales();
+      const sites = await StatistiquesService.getStatistiquesParSite();
       
-      setStatistiquesGlobales(globales);
-      setStatistiquesSites(sites);
+      // Adapter les données au format attendu par les composants
+      setStatistiquesGlobales({
+        total: globales.totalCartes,
+        retires: globales.cartesDelivrees,
+        restants: globales.cartesNonDelivrees
+      });
+      
+      // Adapter les données des sites
+      const sitesAdaptes: StatistiqueSiteData[] = sites.map(site => ({
+        site: site.site,
+        total: site.total,
+        delivrees: site.delivrees,
+        enAttente: site.enAttente,
+        retires: site.delivrees,
+        restants: site.enAttente
+      }));
+      
+      setStatistiquesSites(sitesAdaptes);
       setLastUpdate(new Date().toLocaleTimeString('fr-FR', {
         hour: '2-digit',
         minute: '2-digit'
@@ -247,7 +280,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
-      <Navbar role={role} />
+      <Navbar />
       
       {/* Notification hors ligne */}
       {!isOnline && (
@@ -275,7 +308,7 @@ const Dashboard: React.FC = () => {
                 <p className={`text-gray-600 ${
                   isMobile ? 'text-xs' : 'text-sm'
                 } ${isMobile ? 'hidden' : ''}`}>
-                  COORDINATION ABIDJAN NORD-COCODY
+                  {user?.coordination || 'COORDINATION ABIDJAN NORD-COCODY'}
                 </p>
               </div>
             </div>
@@ -375,15 +408,15 @@ const Dashboard: React.FC = () => {
                 />
                 
                 <CarteStatistique
-                  titre="Cartes Retirées"
+                  titre="Cartes Délivrées"
                   valeur={statistiquesGlobales.retires}
-                  sousTitre={isMobile ? "Retrait effectué" : "Cartes avec délivrance complétée"}
+                  sousTitre={isMobile ? "Délivrance effectuée" : "Cartes avec délivrance complétée"}
                   couleur="bleu"
                   delai={0.2}
                 />
                 
                 <CarteStatistique
-                  titre="Cartes Restantes"
+                  titre="Cartes en Attente"
                   valeur={statistiquesGlobales.restants}
                   sousTitre={isMobile ? "Disponibles" : "Cartes disponibles au retrait"}
                   couleur="vert"

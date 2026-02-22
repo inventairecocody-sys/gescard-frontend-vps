@@ -2,85 +2,54 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import MotivationQuotes from "../components/MotivationQuotes";
-import WelcomeCoordinationUnified from "../components/WelcomeCoordinationUnified";
+import { useAuth } from '../hooks/useAuth';
+import { 
+  HomeIcon, 
+  ClockIcon, 
+  CalendarIcon, 
+  BuildingOfficeIcon,
+  UserIcon,
+  ShieldCheckIcon,
+  MagnifyingGlassIcon,
+  ArrowRightIcon,
+  BoltIcon,
+  DevicePhoneMobileIcon,
+  DocumentArrowDownIcon,
+  ChartBarIcon,
+  LockClosedIcon,
+  UsersIcon,
+  ArrowPathIcon,
+  CheckBadgeIcon
+} from '@heroicons/react/24/outline';
 
 const Home: React.FC = () => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [isMobile, setIsMobile] = useState(false);
-  const [userData, setUserData] = useState({
-    nomComplet: "",
-    agence: "",
-    role: ""
-  });
+  const { user } = useAuth();
   
-  // Fonction pour récupérer les données utilisateur avec formatage du titre (Mr/Mme)
-  const getUserData = () => {
-    let nomComplet = localStorage.getItem("nomComplet") || 
-                    localStorage.getItem("NomComplet") || 
-                    sessionStorage.getItem("nomComplet") || 
-                    "Utilisateur";
-    
-    // Ajouter Mr/Mme devant le nom complet
-    nomComplet = addTitleToName(nomComplet);
-    
-    const agence = localStorage.getItem("agence") || 
-                   localStorage.getItem("Agence") || 
-                   sessionStorage.getItem("agence") || 
-                   "Non spécifiée";
-    
-    const role = localStorage.getItem("role") || 
-                 localStorage.getItem("Role") || 
-                 sessionStorage.getItem("role") || 
-                 "Utilisateur";
-    
-    return { nomComplet, agence, role };
-  };
-
-  // Fonction pour ajouter Mr/Mme devant le nom
-  const addTitleToName = (fullName: string): string => {
-    if (!fullName || fullName === "Utilisateur") return "Utilisateur";
-    
-    // Supprimer d'éventuels préfixes existants
-    const cleanName = fullName.replace(/^(Mr\.?|Mme\.?|M\.?)\s*/i, '').trim();
-    
-    // Vérifier si c'est probablement un nom de femme (basé sur des règles simples)
-    // Note: C'est une approche simplifiée, dans un cas réel, on aurait une base de données des genres
-    const isLikelyFemale = (name: string): boolean => {
-      const femaleIndicators = [
-        // Prénoms féminins courants
-        /marie/i, /anne/i, /catherine/i, /sophie/i, /isabelle/i, /valerie/i,
-        /nathalie/i, /christine/i, /patricia/i, /sandrine/i, /caroline/i,
-        /chantal/i, /dominique/i, /françoise/i, /laurence/i, /severine/i,
-        /sylvie/i, /veronique/i, /audrey/i, /claire/i, /elodie/i,
-        // Terminaisons féminines
-        /ette$/i, /ine$/i, /elle$/i, /ie$/i, /e$/i
-      ];
-      
-      const firstName = name.split(' ')[0] || name;
-      return femaleIndicators.some(indicator => indicator.test(firstName));
-    };
-    
-    // Déterminer le titre approprié
-    const title = isLikelyFemale(cleanName) ? "Mme" : "Mr";
-    
-    return `${title} ${cleanName}`;
-  };
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Responsive
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   // Détection responsive
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkScreen = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 640);
+      setIsTablet(width >= 640 && width < 1024);
     };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    // Charger les données utilisateur
-    setUserData(getUserData());
-    
-    return () => window.removeEventListener('resize', checkMobile);
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
   }, []);
+
+  // Classes responsives
+  const containerClass = isMobile ? 'px-3 py-4' : isTablet ? 'px-6 py-6' : 'container mx-auto px-4 py-8';
+  const titleSize = isMobile ? 'text-lg' : isTablet ? 'text-xl' : 'text-2xl';
+  const textSize = isMobile ? 'text-xs' : isTablet ? 'text-sm' : 'text-base';
+  const cardPadding = isMobile ? 'p-3' : isTablet ? 'p-4' : 'p-6';
+  const iconSize = isMobile ? 'w-4 h-4' : isTablet ? 'w-5 h-5' : 'w-6 h-6';
+  const gridCols = isMobile ? 'grid-cols-2' : isTablet ? 'grid-cols-3' : 'grid-cols-4';
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -91,123 +60,96 @@ const Home: React.FC = () => {
   }, []);
 
   // Formatage date/heure
-  const formattedDate = isMobile 
-    ? currentTime.toLocaleDateString('fr-FR', { 
-        weekday: 'short', 
-        day: 'numeric', 
-        month: 'short' 
-      })
-    : currentTime.toLocaleDateString('fr-FR', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+  const formattedDate = currentTime.toLocaleDateString('fr-FR', { 
+    weekday: isMobile ? 'short' : 'long',
+    year: 'numeric', 
+    month: isMobile ? 'short' : 'long', 
+    day: 'numeric' 
+  });
 
   const formattedTime = currentTime.toLocaleTimeString('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: isMobile ? undefined : '2-digit'
   });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <Navbar role={userData.role} />
+      <Navbar />
       
-      {/* Espace pour la navbar */}
-      <div className="h-16 md:h-20"></div>
-      
-      {/* CITATIONS DE MOTIVATION */}
-      <div className="px-3 md:px-6 py-2 md:py-4">
-        <MotivationQuotes isMobile={isMobile} />
-      </div>
-
-      {/* EN-TÊTE PRINCIPAL */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white shadow-lg"
-      >
-        <div className="container mx-auto px-4 md:px-6 py-4 md:py-6">
+      {/* Header principal */}
+      <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white py-4 shadow-lg">
+        <div className={containerClass}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            
             {/* Informations utilisateur */}
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 space-y-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                  <span className="text-lg md:text-xl">🏠</span>
+                <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-white/20 rounded-xl flex items-center justify-center`}>
+                  <HomeIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-white`} />
                 </div>
                 <div>
-                  <h1 className="font-bold text-xl md:text-3xl">
-                    Tableau de Bord
+                  <h1 className={`${titleSize} font-bold`}>
+                    Accueil
                   </h1>
-                  <p className="text-xs md:text-sm text-white/80 mt-1">
-                    COORDINATION ABIDJAN NORD-COCODY
+                  <p className={`text-white/90 mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    {user?.coordination || 'COORDINATION ABIDJAN NORD-COCODY'}
                   </p>
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-base md:text-xl">👋</span>
-                  <p className="text-sm md:text-lg text-white/90">
-                    Bienvenue, <span className="font-semibold text-white">{userData.nomComplet}</span>
+                  <UserIcon className={`${iconSize} text-white/80`} />
+                  <p className={`${textSize} text-white/90`}>
+                    Bienvenue, <span className="font-semibold text-white">{user?.nomUtilisateur || 'Utilisateur'}</span>
                   </p>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-xs md:text-sm px-2 md:px-3 py-1 bg-white/20 rounded-lg backdrop-blur-sm flex items-center gap-1">
-                    <span>🏢</span> {userData.agence}
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'} px-2 py-1 bg-white/20 rounded-lg flex items-center gap-1`}>
+                    <BuildingOfficeIcon className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                    {user?.coordination || 'Coordination'}
                   </span>
-                  <span className="text-xs md:text-sm px-2 md:px-3 py-1 bg-white/20 rounded-lg backdrop-blur-sm flex items-center gap-1">
-                    <span>🎯</span> {userData.role}
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'} px-2 py-1 bg-white/20 rounded-lg flex items-center gap-1`}>
+                    <ShieldCheckIcon className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                    {user?.role || 'Rôle'}
                   </span>
                 </div>
               </div>
             </div>
             
-            {/* DATE ET HEURE */}
-            <motion.div 
-              className="w-full md:w-auto mt-3 md:mt-0"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <div className="p-3 md:p-4 bg-white/20 backdrop-blur-sm rounded-2xl text-center border border-white/30">
-                <div className="flex items-center justify-center gap-2 text-white/90 mb-1">
-                  <span>📅</span>
-                  <span className="text-xs md:text-sm font-medium">
-                    {formattedDate}
-                  </span>
-                </div>
-                <div className="font-bold text-white font-mono text-lg md:text-2xl">
-                  {formattedTime}
-                </div>
-                <div className="text-xs md:text-sm text-white/70 mt-1">
-                  Mise à jour en temps réel
-                </div>
+            {/* Date et heure */}
+            <div className={`w-full md:w-auto bg-white/20 backdrop-blur-sm rounded-xl ${cardPadding} text-center border border-white/30`}>
+              <div className="flex items-center justify-center gap-2 text-white/90 mb-1">
+                <CalendarIcon className={`${iconSize}`} />
+                <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>
+                  {formattedDate}
+                </span>
               </div>
-            </motion.div>
+              <div className="flex items-center justify-center gap-2 font-bold text-white">
+                <ClockIcon className={`${iconSize}`} />
+                <span className={`${isMobile ? 'text-base' : 'text-lg'} font-mono`}>
+                  {formattedTime}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </motion.header>
+      </div>
 
-      {/* CONTENU PRINCIPAL */}
-      <div className="container mx-auto px-3 md:px-4 py-4 md:py-6">
+      {/* Contenu principal */}
+      <div className={containerClass}>
         
-        {/* SECTION RECHERCHE RAPIDE */}
+        {/* Carte recherche rapide */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
           className="mb-4 md:mb-6"
         >
           <Link to="/inventaire">
             <motion.div
-              whileHover={{ 
-                scale: 1.02,
-                y: -2,
-                boxShadow: "0 12px 40px rgba(0, 119, 182, 0.15)"
-              }}
+              whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               className="group relative bg-white rounded-2xl p-4 md:p-5 shadow-lg border border-gray-200 hover:border-blue-300 transition-all duration-300 cursor-pointer overflow-hidden"
             >
@@ -216,134 +158,86 @@ const Home: React.FC = () => {
               <div className="relative z-10 flex items-center justify-between">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div className="relative">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#0077B6] to-[#00A8E8] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-200 transition-shadow duration-300">
-                      <span className="text-white text-lg">🔍</span>
+                    <div className={`${isMobile ? 'w-10 h-10' : 'w-12 h-12'} bg-gradient-to-br from-[#0077B6] to-[#00A8E8] rounded-xl flex items-center justify-center shadow-lg`}>
+                      <MagnifyingGlassIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-white`} />
                     </div>
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-green-400 rounded-full border-2 border-white"></div>
                   </div>
                   
                   <div>
-                    <h3 className="font-bold text-gray-800 group-hover:text-[#0077B6] transition-colors duration-300">
+                    <h3 className={`font-bold text-gray-800 group-hover:text-[#0077B6] transition-colors ${isMobile ? 'text-sm' : 'text-base'}`}>
                       Recherche Avancée
                     </h3>
-                    <p className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300">
-                      Accès direct à l'outil de recherche GESCARD
+                    <p className={`text-gray-600 group-hover:text-gray-700 transition-colors ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                      Accès direct à l'inventaire
                     </p>
                   </div>
                 </div>
                 
-                <div className="text-gray-400 group-hover:text-[#0077B6] transform group-hover:translate-x-1 transition-all duration-300">
-                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                <ArrowRightIcon className={`${iconSize} text-gray-400 group-hover:text-[#0077B6] transform group-hover:translate-x-1 transition-all duration-300`} />
               </div>
             </motion.div>
           </Link>
         </motion.section>
 
-        {/* SECTION UNIFIÉE : BIENVENUE + COORDINATION */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mb-6 md:mb-8"
-        >
-          <WelcomeCoordinationUnified isMobile={isMobile} />
-        </motion.div>
-
-        {/* SECTION FONCTIONNALITÉS (MODIFIÉE) */}
+        {/* Caractéristiques GESCARD */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.2 }}
           className="mb-6 md:mb-8"
         >
           <div className="bg-gradient-to-r from-[#0077B6] to-[#2E8B57] rounded-2xl p-4 md:p-6 text-white shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
             
             <div className="relative z-10">
               <div className="text-center mb-4 md:mb-6">
-                <h2 className="font-bold text-lg md:text-2xl mb-2">
+                <h2 className={`font-bold ${titleSize} mb-2`}>
                   Caractéristiques GESCARD
                 </h2>
-                <p className="text-sm md:text-base text-blue-100">
+                <p className={`${textSize} text-blue-100`}>
                   Une plateforme puissante et intuitive
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className={`grid ${gridCols} gap-2 md:gap-3`}>
                 {[
-                  { 
-                    icon: "✅", 
-                    title: "Plateforme Active", 
-                    desc: "Système Opérationnel"
-                  },
-                  { 
-                    icon: "📱", 
-                    title: "Mobile", 
-                    desc: "Responsive"
-                  },
-                  { 
-                    icon: "💾", 
-                    title: "Export", 
-                    desc: "Excel/PDF"
-                  },
-                  { 
-                    icon: "⚡", 
-                    title: "Rapidité", 
-                    desc: "Performance optimale"
-                  },
-                  { 
-                    icon: "🔒", 
-                    title: "Sécurité", 
-                    desc: "Données protégées"
-                  },
-                  { 
-                    icon: "📊", 
-                    title: "Statistiques", 
-                    desc: "Analyses détaillées"
-                  },
-                  { 
-                    icon: "🤝", 
-                    title: "Collaboration", 
-                    desc: "Équipe unifiée"
-                  },
-                  { 
-                    icon: "🔄", 
-                    title: "Actualisation", 
-                    desc: "Temps réel"
-                  }
-                ].map((item, index) => (
-                  <motion.div 
-                    key={index}
-                    whileHover={{ 
-                      scale: 1.05, 
-                      y: -2,
-                      backgroundColor: "rgba(255, 255, 255, 0.15)"
-                    }}
-                    className="bg-white/10 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm border border-white/20 hover:border-white/30 transition-all duration-300"
-                  >
-                    <div className="text-xl md:text-2xl mb-1 md:mb-2">{item.icon}</div>
-                    <div className="font-semibold text-sm md:text-base mb-1">{item.title}</div>
-                    <div className="text-xs md:text-sm text-white/80">{item.desc}</div>
-                  </motion.div>
-                ))}
+                  { icon: CheckBadgeIcon, title: "Plateforme Active", desc: "Système Opérationnel" },
+                  { icon: DevicePhoneMobileIcon, title: "Mobile", desc: "Responsive" },
+                  { icon: DocumentArrowDownIcon, title: "Export", desc: "Excel/CSV" },
+                  { icon: BoltIcon, title: "Rapidité", desc: "Performance" },
+                  { icon: LockClosedIcon, title: "Sécurité", desc: "Données protégées" },
+                  { icon: ChartBarIcon, title: "Statistiques", desc: "Analyses" },
+                  { icon: UsersIcon, title: "Collaboration", desc: "Équipe unifiée" },
+                  { icon: ArrowPathIcon, title: "Actualisation", desc: "Temps réel" }
+                ].map((item, index) => {
+                  const Icon = item.icon;
+                  return (
+                    <motion.div 
+                      key={index}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      className="bg-white/10 rounded-xl p-2 md:p-3 text-center backdrop-blur-sm border border-white/20 hover:border-white/30 transition-all duration-300"
+                    >
+                      <Icon className={`${iconSize} mx-auto mb-1 md:mb-2 text-white`} />
+                      <div className={`font-semibold ${isMobile ? 'text-xs' : 'text-sm'} mb-0.5 md:mb-1`}>
+                        {item.title}
+                      </div>
+                      <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-white/80`}>
+                        {item.desc}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
 
               <div className="text-center mt-4 md:mt-6">
                 <Link to="/inventaire">
                   <motion.button
-                    whileHover={{ 
-                      scale: 1.02,
-                      boxShadow: "0 8px 25px rgba(255, 255, 255, 0.3)"
-                    }}
+                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="bg-white text-[#0077B6] px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 md:gap-3 mx-auto"
+                    className="bg-white text-[#0077B6] px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold hover:bg-gray-50 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 mx-auto"
                   >
-                    <span className="text-lg">🚀</span>
                     <span>Explorer GESCARD</span>
-                    <span className="transform group-hover:translate-x-1 transition-transform duration-300">→</span>
+                    <ArrowRightIcon className={`${iconSize}`} />
                   </motion.button>
                 </Link>
               </div>
@@ -351,61 +245,56 @@ const Home: React.FC = () => {
           </div>
         </motion.section>
 
-        {/* SECTION AVANTAGES SUPPLÉMENTAIRES */}
+        {/* Avantages */}
         <motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mb-6"
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4"
         >
-          <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] rounded-2xl p-5 md:p-6 text-white shadow-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">⏱️</span>
+          {[
+            {
+              icon: BoltIcon,
+              title: "Gain de Temps",
+              desc: "Réduction significative du temps de recherche",
+              color: "from-[#F77F00] to-[#FF9E40]"
+            },
+            {
+              icon: CheckBadgeIcon,
+              title: "Précision",
+              desc: "Élimination des erreurs manuelles",
+              color: "from-[#0077B6] to-[#2E8B57]"
+            },
+            {
+              icon: ChartBarIcon,
+              title: "Productivité",
+              desc: "Augmentation de l'efficacité des équipes",
+              color: "from-[#2E8B57] to-[#0077B6]"
+            }
+          ].map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + index * 0.1 }}
+                className={`bg-gradient-to-r ${item.color} rounded-xl ${cardPadding} text-white shadow-lg`}
+              >
+                <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                  <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-white/20 rounded-lg flex items-center justify-center`}>
+                    <Icon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
                   </div>
                   <div>
-                    <h3 className="font-bold">Gain de Temps</h3>
-                    <p className="text-sm text-white/90">Optimisation des processus</p>
+                    <h3 className={`font-bold ${isMobile ? 'text-sm' : 'text-base'}`}>{item.title}</h3>
                   </div>
                 </div>
-                <p className="text-sm text-white/80">
-                  Réduction significative du temps de recherche et de gestion des cartes
+                <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-white/90`}>
+                  {item.desc}
                 </p>
-              </div>
-              
-              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">🎯</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold">Précision</h3>
-                    <p className="text-sm text-white/90">Données fiables</p>
-                  </div>
-                </div>
-                <p className="text-sm text-white/80">
-                  Élimination des erreurs manuelles grâce à l'automatisation
-                </p>
-              </div>
-              
-              <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">📈</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold">Productivité</h3>
-                    <p className="text-sm text-white/90">Efficacité accrue</p>
-                  </div>
-                </div>
-                <p className="text-sm text-white/80">
-                  Augmentation de la productivité des équipes de coordination
-                </p>
-              </div>
-            </div>
-          </div>
+              </motion.div>
+            );
+          })}
         </motion.section>
       </div>
     </div>
