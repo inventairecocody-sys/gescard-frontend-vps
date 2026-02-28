@@ -70,12 +70,12 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     navigate('/login');
   };
 
-  // Navigation items avec Heroicons
+  // Navigation items avec Heroicons - ✅ CORRIGÉ
   const navItems = [
     {
       path: "/home",
-      label: "Accueil",
-      labelShort: "Accueil",
+      label: "Accueil",                    // ← "Accueil" au lieu de "Home"
+      labelShort: "Accueil",                // ← "Accueil" au lieu de "Home"
       icon: HomeIcon,
       color: "from-orange-500 to-orange-400",
       hoverColor: "hover:bg-orange-50 hover:text-orange-600",
@@ -92,8 +92,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     },
     {
       path: "/dashboard",
-      label: "Tableau de bord",
-      labelShort: "Dashboard",
+      label: "Tableau de bord",             // ← "Tableau de bord" au lieu de "Dashboard"
+      labelShort: "Tableau",                 // ← "Tableau" au lieu de "Dashboard"
       icon: ChartBarIcon,
       color: "from-green-500 to-blue-600",
       hoverColor: "hover:bg-green-50 hover:text-green-600",

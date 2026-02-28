@@ -6,12 +6,13 @@ import ImportModal from "../components/ImportModal";
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { CartesService } from '../Services/api/cartes';
-import type { QueryParams } from '../types';  // ← Garder seulement QueryParams
+import type { QueryParams } from '../types';
 
+// ✅ CORRIGÉ: Ajout de ArrowPathIcon dans la liste
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
-  ArrowPathIcon,
+  ArrowPathIcon,      // ← Maintenant présent !
   DocumentArrowUpIcon,
   DocumentArrowDownIcon,
   DocumentTextIcon,
@@ -242,7 +243,7 @@ const Inventaire: React.FC = () => {
   const handleExport = async (format: 'csv' | 'excel') => {
     if (!canExport()) return;
     
-    currentExportFormat.current = format;  // ← Sauvegarder le format pour le modal
+    currentExportFormat.current = format;
     
     setExportLoading(true);
     setShowProgressModal(true);

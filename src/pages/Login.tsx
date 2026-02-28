@@ -71,10 +71,8 @@ const Login: React.FC = () => {
     };
     
     checkApiConnection();
-  }, []); // Une seule exécution
+  }, []);
 
-  // ... (le reste du code reste identique)
-  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -141,7 +139,9 @@ const Login: React.FC = () => {
     try {
       const response = await AuthService.login(formData);
       setAuth(response.token, response.utilisateur.role, response.utilisateur);
-      navigate('/dashboard');
+      
+      // ✅ CORRIGÉ: Rediriger vers HOME au lieu de DASHBOARD
+      navigate('/home');
     } catch (err: any) {
       console.error("Erreur de connexion:", err);
       const nouvellesTentatives = attemptCount + 1;

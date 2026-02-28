@@ -16,8 +16,6 @@ interface StatistiqueSiteData {
   total: number;
   delivrees: number;
   enAttente: number;
-  retires: number;
-  restants: number;
 }
 
 const Dashboard: React.FC = () => {
@@ -198,21 +196,21 @@ const Dashboard: React.FC = () => {
       const globales = await StatistiquesService.getStatistiquesGlobales();
       const sites = await StatistiquesService.getStatistiquesParSite();
       
-      // Adapter les données au format attendu par les composants
+      console.log('✅ Données reçues:', { globales, sites });
+      
+      // ✅ CORRIGÉ: Adapter les données au format attendu par les composants
       setStatistiquesGlobales({
-        total: globales.totalCartes,
-        retires: globales.cartesDelivrees,
-        restants: globales.cartesNonDelivrees
+        total: globales.total,
+        retires: globales.retires,
+        restants: globales.restants
       });
       
-      // Adapter les données des sites
+      // ✅ CORRIGÉ: Adapter les données des sites
       const sitesAdaptes: StatistiqueSiteData[] = sites.map(site => ({
         site: site.site,
         total: site.total,
-        delivrees: site.delivrees,
-        enAttente: site.enAttente,
-        retires: site.delivrees,
-        restants: site.enAttente
+        delivrees: site.retires,      // Dans l'API, c'est 'retires'
+        enAttente: site.restants       // Dans l'API, c'est 'restants'
       }));
       
       setStatistiquesSites(sitesAdaptes);

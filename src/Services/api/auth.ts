@@ -51,8 +51,9 @@ export const AuthService = {
     }
   },
 
+  // ✅ CORRIGÉ: /profil → /profil/me
   async getProfile(): Promise<Utilisateur> {
-    const response = await apiClient.get<ApiResponse<Utilisateur>>('/profil');
+    const response = await apiClient.get<ApiResponse<Utilisateur>>('/profil/me');
     
     if (!response.data.data) {
       throw new Error('Profil non trouvé');
@@ -61,8 +62,9 @@ export const AuthService = {
     return response.data.data;
   },
 
+  // ✅ CORRIGÉ: /profil → /profil/me
   async updateProfile(data: Partial<Utilisateur>): Promise<Utilisateur> {
-    const response = await apiClient.put<ApiResponse<Utilisateur>>('/profil', data);
+    const response = await apiClient.put<ApiResponse<Utilisateur>>('/profil/me', data);
     
     if (!response.data.data) {
       throw new Error('Erreur lors de la mise à jour');

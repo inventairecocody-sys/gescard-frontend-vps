@@ -1,10 +1,11 @@
+// src/context/AuthContext.tsx
 import { createContext } from "react";
-// Supprimez l'import inutilisé de ReactNode
 
-// Définition du type User plus précis
+// Définition du type User plus précis - ✅ CORRIGÉ avec nomComplet
 export interface User {
   id: number;
   nomUtilisateur: string;
+  nomComplet: string;                    // ← AJOUTÉ (nom complet pour affichage)
   role: 'Administrateur' | 'Gestionnaire' | "Chef d'équipe" | 'Opérateur';
   coordination: string;
   agence: string;

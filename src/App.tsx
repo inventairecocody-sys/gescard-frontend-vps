@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
+import Navbar from "./components/Navbar";  // ✅ IMPORT AJOUTÉ
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -71,100 +72,92 @@ const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Routes>
-      {/* Page de connexion - publique */}
-      <Route path="/" element={<Login />} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
+    <>
+      {/* ✅ NAVBAR AFFICHÉE UNIQUEMENT SI CONNECTÉ */}
+      {isAuthenticated && <Navbar />}
+      
+      <Routes>
+        {/* Page de connexion - publique */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
 
-      {/* Page d'accueil - accessible à tous les connectés */}
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
+        {/* Page d'accueil - accessible à tous les connectés */}
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Dashboard - accessible à tous les connectés */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+        {/* Dashboard - accessible à tous les connectés */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Inventaire - accessible à tous les connectés */}
-      <Route
-        path="/inventaire"
-        element={
-          <ProtectedRoute>
-            <Inventaire />
-          </ProtectedRoute>
-        }
-      />
+        {/* Inventaire - accessible à tous les connectés */}
+        <Route
+          path="/inventaire"
+          element={
+            <ProtectedRoute>
+              <Inventaire />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Import/Export - route commentée car pas encore implémentée */}
-      {/* 
-      <Route
-        path="/import-export"
-        element={
-          <ProtectedRoute allowedRoles={["Administrateur", "Gestionnaire"]}>
-            <ImportExport />
-          </ProtectedRoute>
-        }
-      />
-      */}
+        {/* Journal - accessible seulement à Administrateur */}
+        <Route
+          path="/journal"
+          element={
+            <ProtectedRoute allowedRoles={["Administrateur"]}>
+              <Journal />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Journal - accessible seulement à Administrateur */}
-      <Route
-        path="/journal"
-        element={
-          <ProtectedRoute allowedRoles={["Administrateur"]}>
-            <Journal />
-          </ProtectedRoute>
-        }
-      />
+        {/* Gestion des Comptes - accessible seulement à Administrateur */}
+        <Route
+          path="/gestion-comptes"
+          element={
+            <ProtectedRoute allowedRoles={["Administrateur"]}>
+              <GestionComptes />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Gestion des Comptes - accessible seulement à Administrateur */}
-      <Route
-        path="/gestion-comptes"
-        element={
-          <ProtectedRoute allowedRoles={["Administrateur"]}>
-            <GestionComptes />
-          </ProtectedRoute>
-        }
-      />
+        {/* Profil - accessible à tous les connectés */}
+        <Route
+          path="/profil"
+          element={
+            <ProtectedRoute>
+              <Profil />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Profil - accessible à tous les connectés */}
-      <Route
-        path="/profil"
-        element={
-          <ProtectedRoute>
-            <Profil />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Redirection par défaut */}
-      <Route 
-        path="*" 
-        element={
-          isAuthenticated ? 
-          <Navigate to="/dashboard" replace /> : 
-          <Navigate to="/" replace />
-        } 
-      />
-    </Routes>
+        {/* ✅ REDIRECTION VERS HOME (pas dashboard) */}
+        <Route 
+          path="*" 
+          element={
+            isAuthenticated ? 
+            <Navigate to="/home" replace /> :  // ← CORRIGÉ: dashboard → home
+            <Navigate to="/" replace />
+          } 
+        />
+      </Routes>
+    </>
   );
 };
 
 // App principal avec le provider
 const App: React.FC = () => {
   return (
-    // ✅ AJOUT DES FLAGS FUTURE ICI
     <Router
       future={{
         v7_startTransition: true,

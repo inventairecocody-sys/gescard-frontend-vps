@@ -47,9 +47,11 @@ export interface AuthResponse {
   utilisateur: Utilisateur;
 }
 
+// ✅ CORRIGÉ: Ajout de nomComplet
 export interface Utilisateur {
   id: number;
   nomUtilisateur: string;
+  nomComplet: string;                    // ← AJOUTÉ (nom complet pour affichage)
   role: UserRole;
   coordination: string;
   agence: string;
@@ -115,10 +117,32 @@ export interface ChefEquipeEditFields {
 }
 
 // ========================================
-// TYPES STATISTIQUES
+// ✅ TYPES STATISTIQUES CORRIGÉS
 // ========================================
 
 export interface StatistiquesGlobales {
+  total: number;                    // total_cartes
+  retires: number;                  // cartes_retirees
+  restants: number;                 // cartes_restantes
+  tauxRetrait: number;              // taux de retrait en %
+  metadata?: {
+    sites_actifs: number;
+    beneficiaires_uniques: number;
+    premiere_importation: string;
+    derniere_importation: string;
+  };
+}
+
+export interface StatistiqueSite {
+  site: string;                     // Nom du site
+  total: number;                    // Total des cartes pour ce site
+  retires: number;                  // Cartes retirées (délivrées)
+  restants: number;                 // Cartes en attente
+  tauxRetrait: number;              // Taux de retrait en %
+}
+
+// Types pour compatibilité avec l'ancien code
+export interface StatistiquesGlobalesLegacy {
   totalCartes: number;
   cartesDelivrees: number;
   cartesNonDelivrees: number;
@@ -135,7 +159,7 @@ export interface StatistiquesGlobales {
   }[];
 }
 
-export interface StatistiqueSite {
+export interface StatistiqueSiteLegacy {
   site: string;
   total: number;
   delivrees: number;

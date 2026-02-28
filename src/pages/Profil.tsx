@@ -80,7 +80,7 @@ const Profil: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [logout, navigate]); // ✅ Dépendances de fetchProfile
+  }, [logout, navigate]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +129,7 @@ const Profil: React.FC = () => {
   // ✅ Solution 1 (suite): useEffect avec fetchProfile dans les dépendances
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]); // ✅ Maintenant fetchProfile est dans les dépendances
+  }, [fetchProfile]);
 
   // Fonction pour obtenir la couleur du rôle
   const getRoleColor = (role: string) => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import WelcomeCoordinationUnified from "../components/WelcomeCoordinationUnified";
 import { useAuth } from '../hooks/useAuth';
 import { 
   HomeIcon, 
@@ -73,10 +74,24 @@ const Home: React.FC = () => {
     second: isMobile ? undefined : '2-digit'
   });
 
+  // ✅ Nom complet de l'utilisateur (nomComplet) - MAINTENANT VALIDE
+  const getUserDisplayName = () => {
+    if (user?.nomComplet) {                 // ← Plus d'erreur TypeScript
+      return user.nomComplet;
+    }
+    if (user?.nomUtilisateur) {
+      return user.nomUtilisateur;
+    }
+    return 'Utilisateur';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Navbar />
       
+      {/* Composant WelcomeCoordinationUnified */}
+      <WelcomeCoordinationUnified />
+
       {/* Header principal */}
       <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white py-4 shadow-lg">
         <div className={containerClass}>
@@ -102,7 +117,7 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <UserIcon className={`${iconSize} text-white/80`} />
                   <p className={`${textSize} text-white/90`}>
-                    Bienvenue, <span className="font-semibold text-white">{user?.nomUtilisateur || 'Utilisateur'}</span>
+                    Bienvenue, <span className="font-semibold text-white">{getUserDisplayName()}</span>
                   </p>
                 </div>
                 
