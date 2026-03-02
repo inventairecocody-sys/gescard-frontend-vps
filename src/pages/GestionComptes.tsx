@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { UtilisateursService } from '../Services/api/utilisateurs';
+import type { CreateUtilisateurData, UpdateUtilisateurData } from '../Services/api/utilisateurs';
 import { 
   UsersIcon, 
   UserPlusIcon, 
@@ -24,8 +26,8 @@ interface Utilisateur {
   id: number;
   nomUtilisateur: string;
   role: 'Administrateur' | 'Gestionnaire' | "Chef d'équipe" | 'Opérateur';
-  coordination: string;      // Coordination (ex: ABIDJAN NORD-COCODY)
-  agence: string;            // Agence (ex: BINGERVILLE, CHU D'ANGRÉ, etc.)
+  coordination: string;
+  agence: string;
   email?: string;
   telephone?: string;
   actif: boolean;
@@ -125,16 +127,42 @@ const GestionComptes: React.FC = () => {
 
   // Charger les utilisateurs
   const fetchUtilisateurs = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
+      console.log('🔄 Chargement des utilisateurs...');
       const response = await UtilisateursService.getUtilisateurs({ limit: 100 });
-      setUtilisateurs(response.data);
-      calculerStats(response.data);
+      
+      // Adapter la réponse au format attendu
+      let usersList: Utilisateur[] = [];
+      
+      if (response && response.data) {
+        usersList = response.data.map((u: any) => ({
+          id: u.id,
+          nomUtilisateur: u.nomUtilisateur || u.nom || '',
+          role: u.role || 'Opérateur',
+          coordination: u.coordination || '',
+          agence: u.agence || 'BINGERVILLE',
+          email: u.email,
+          telephone: u.telephone,
+          actif: u.actif !== false,
+          dateCreation: u.dateCreation || new Date().toISOString(),
+          derniereConnexion: u.derniereConnexion
+        }));
+      }
+      
+      console.log('✅ Utilisateurs chargés:', usersList.length);
+      setUtilisateurs(usersList);
+      calculerStats(usersList);
+      
     } catch (error: any) {
-      console.error('Erreur chargement utilisateurs:', error);
+      console.error('❌ Erreur chargement utilisateurs:', error);
       setError('Impossible de charger les utilisateurs');
+      setUtilisateurs([]);
     } finally {
       setLoading(false);
     }
@@ -154,10 +182,8 @@ const GestionComptes: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchUtilisateurs();
-    }
-  }, [isAdmin, fetchUtilisateurs]);
+    fetchUtilisateurs();
+  }, [fetchUtilisateurs]);
 
   // Filtrer les utilisateurs
   const filteredUsers = utilisateurs.filter(user => {
@@ -200,7 +226,7 @@ const GestionComptes: React.FC = () => {
     }
     
     try {
-      await UtilisateursService.createUtilisateur({
+      const newUserData: CreateUtilisateurData = {
         nomUtilisateur: formData.nomUtilisateur,
         role: formData.role,
         coordination: formData.coordination,
@@ -208,7 +234,9 @@ const GestionComptes: React.FC = () => {
         email: formData.email || undefined,
         telephone: formData.telephone || undefined,
         motDePasse: formData.motDePasse
-      });
+      };
+      
+      await UtilisateursService.createUtilisateur(newUserData);
       
       setSuccess('Utilisateur créé avec succès');
       setShowCreateModal(false);
@@ -227,7 +255,7 @@ const GestionComptes: React.FC = () => {
     if (!editingUser) return;
     
     try {
-      const updateData: any = {
+      const updateData: UpdateUtilisateurData = {
         role: formData.role,
         coordination: formData.coordination,
         agence: formData.agence,
@@ -271,10 +299,13 @@ const GestionComptes: React.FC = () => {
       action: async () => {
         try {
           if (user.actif) {
+            // Désactiver l'utilisateur (soft delete)
             await UtilisateursService.deleteUtilisateur(user.id);
           } else {
-            await UtilisateursService.updateUtilisateur(user.id, { actif: true });
+            // Réactiver l'utilisateur
+            await UtilisateursService.activateUtilisateur(user.id);
           }
+          
           setSuccess(`Utilisateur ${action} avec succès`);
           fetchUtilisateurs();
         } catch (error: any) {
@@ -337,6 +368,7 @@ const GestionComptes: React.FC = () => {
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
         <div className={containerClass}>
           <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 p-8 md:p-12 text-center">
             <div className="w-12 h-12 md:w-16 md:h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -356,17 +388,34 @@ const GestionComptes: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <Navbar />
       
       {/* Header */}
       <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white py-4 shadow-lg">
         <div className={containerClass}>
-          <h1 className={`${titleSize} font-bold flex items-center gap-3`}>
-            <UsersIcon className={iconSize} />
-            Gestion des Comptes
-          </h1>
-          <p className={`text-white/90 mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-            Administration des utilisateurs
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className={`${titleSize} font-bold flex items-center gap-3`}>
+                <UsersIcon className={iconSize} />
+                Gestion des Comptes
+              </h1>
+              <p className={`text-white/90 mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                Administration des utilisateurs
+              </p>
+            </div>
+            
+            {/* Bouton actualiser */}
+            <motion.button
+              onClick={fetchUtilisateurs}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`${buttonSize} bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center gap-2 transition-colors`}
+              disabled={loading}
+            >
+              <ArrowPathIcon className={`${iconSize} ${loading ? 'animate-spin' : ''}`} />
+              {!isMobile && 'Actualiser'}
+            </motion.button>
+          </div>
         </div>
       </div>
 
@@ -417,7 +466,7 @@ const GestionComptes: React.FC = () => {
               transition={{ delay: index * 0.1 }}
               className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-200"
             >
-              <div className={`text-lg md:text-2xl font-bold ${stat.color} bg-clip-text text-transparent bg-gradient-to-r ${stat.color}`}>
+              <div className={`text-lg md:text-2xl font-bold text-gray-800`}>
                 {stat.value}
               </div>
               <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>{stat.label}</div>
@@ -479,18 +528,6 @@ const GestionComptes: React.FC = () => {
               </select>
             </div>
             
-            {/* Bouton actualiser */}
-            <motion.button
-              onClick={fetchUtilisateurs}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`${buttonSize} bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 transition-colors`}
-              disabled={loading}
-            >
-              <ArrowPathIcon className={`${iconSize} ${loading ? 'animate-spin' : ''}`} />
-              {!isMobile && 'Actualiser'}
-            </motion.button>
-            
             {/* Bouton créer */}
             <motion.button
               onClick={() => {
@@ -502,7 +539,7 @@ const GestionComptes: React.FC = () => {
               className={`${buttonSize} bg-gradient-to-r from-[#F77F00] to-[#0077B6] text-white rounded-lg flex items-center gap-2 font-medium shadow-lg`}
             >
               <UserPlusIcon className={iconSize} />
-              <span>Nouveau</span>
+              <span>Nouvel utilisateur</span>
             </motion.button>
           </div>
         </div>
@@ -513,7 +550,7 @@ const GestionComptes: React.FC = () => {
           {loading ? (
             <div className="p-8 text-center">
               <ArrowPathIcon className="w-8 h-8 text-[#0077B6] animate-spin mx-auto mb-3" />
-              <p className="text-gray-600">Chargement...</p>
+              <p className="text-gray-600">Chargement des utilisateurs...</p>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="p-8 text-center">
@@ -550,9 +587,9 @@ const GestionComptes: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {currentUsers.map((user) => (
+                    {currentUsers.map((userItem) => (
                       <motion.tr 
-                        key={user.id} 
+                        key={userItem.id} 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="hover:bg-gray-50 transition-colors"
@@ -560,21 +597,21 @@ const GestionComptes: React.FC = () => {
                         {/* Utilisateur */}
                         <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="font-medium text-gray-900 text-sm md:text-base">
-                            @{user.nomUtilisateur}
+                            @{userItem.nomUtilisateur}
                           </div>
-                          {user.email && (
-                            <div className="text-xs text-gray-500 mt-1">{user.email}</div>
+                          {userItem.email && (
+                            <div className="text-xs text-gray-500 mt-1">{userItem.email}</div>
                           )}
-                          {user.telephone && (
-                            <div className="text-xs text-gray-500">{user.telephone}</div>
+                          {userItem.telephone && (
+                            <div className="text-xs text-gray-500">{userItem.telephone}</div>
                           )}
                         </td>
                         
                         {/* Rôle */}
                         <td className="px-3 md:px-6 py-3 md:py-4">
-                          <span className={`inline-flex items-center px-2 py-1 md:px-3 md:py-1.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                            {getRoleIcon(user.role)}
-                            <span className="ml-1 hidden md:inline">{user.role}</span>
+                          <span className={`inline-flex items-center px-2 py-1 md:px-3 md:py-1.5 rounded-full text-xs font-medium ${getRoleColor(userItem.role)}`}>
+                            {getRoleIcon(userItem.role)}
+                            <span className="ml-1 hidden md:inline">{userItem.role}</span>
                           </span>
                         </td>
                         
@@ -582,7 +619,7 @@ const GestionComptes: React.FC = () => {
                         <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center text-sm text-gray-900">
                             <BuildingOfficeIcon className="w-4 h-4 mr-2 text-gray-400 hidden md:block" />
-                            <span className="text-xs md:text-sm">{user.coordination}</span>
+                            <span className="text-xs md:text-sm">{userItem.coordination}</span>
                           </div>
                         </td>
                         
@@ -590,13 +627,13 @@ const GestionComptes: React.FC = () => {
                         <td className="px-3 md:px-6 py-3 md:py-4">
                           <div className="flex items-center text-sm text-gray-900">
                             <BuildingStorefrontIcon className="w-4 h-4 mr-2 text-gray-400 hidden md:block" />
-                            <span className="text-xs md:text-sm">{user.agence}</span>
+                            <span className="text-xs md:text-sm">{userItem.agence}</span>
                           </div>
                         </td>
                         
                         {/* Statut */}
                         <td className="px-3 md:px-6 py-3 md:py-4">
-                          {user.actif ? (
+                          {userItem.actif ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                               <CheckCircleIcon className="w-3 h-3 mr-1" />
                               <span className="hidden md:inline">Actif</span>
@@ -613,7 +650,7 @@ const GestionComptes: React.FC = () => {
                         <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-500">
                           <div className="flex items-center">
                             <CalendarIcon className="w-4 h-4 mr-2 text-gray-400 hidden md:block" />
-                            {formatDate(user.dateCreation)}
+                            {formatDate(userItem.dateCreation)}
                           </div>
                         </td>
                         
@@ -626,14 +663,14 @@ const GestionComptes: React.FC = () => {
                               <>
                                 <motion.button
                                   onClick={() => {
-                                    setEditingUser(user);
+                                    setEditingUser(userItem);
                                     setFormData({
-                                      nomUtilisateur: user.nomUtilisateur,
-                                      role: user.role,
-                                      coordination: user.coordination,
-                                      agence: user.agence,
-                                      email: user.email || '',
-                                      telephone: user.telephone || '',
+                                      nomUtilisateur: userItem.nomUtilisateur,
+                                      role: userItem.role,
+                                      coordination: userItem.coordination,
+                                      agence: userItem.agence,
+                                      email: userItem.email || '',
+                                      telephone: userItem.telephone || '',
                                       motDePasse: '',
                                       confirmerMotDePasse: ''
                                     });
@@ -648,17 +685,17 @@ const GestionComptes: React.FC = () => {
                                 </motion.button>
                                 
                                 <motion.button
-                                  onClick={() => handleToggleStatus(user)}
+                                  onClick={() => handleToggleStatus(userItem)}
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                   className={`p-1.5 md:p-2 rounded-lg transition-colors ${
-                                    user.actif 
+                                    userItem.actif 
                                       ? 'text-red-600 hover:bg-red-50' 
                                       : 'text-green-600 hover:bg-green-50'
                                   }`}
-                                  title={user.actif ? 'Désactiver' : 'Réactiver'}
+                                  title={userItem.actif ? 'Désactiver' : 'Réactiver'}
                                 >
-                                  {user.actif ? (
+                                  {userItem.actif ? (
                                     <XCircleIcon className="w-4 h-4" />
                                   ) : (
                                     <CheckCircleIcon className="w-4 h-4" />

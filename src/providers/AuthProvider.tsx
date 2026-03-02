@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import type { ReactNode } from "react";  // ← Gardez ici, car utilisé dans les props
+import type { ReactNode } from "react";
 import { AuthContext, type User } from "../context/AuthContext";
 
 // Props du provider
 interface AuthProviderProps {
-  children: ReactNode;  // ← Utilisé ici
+  children: ReactNode;
 }
 
 // Provider complet
@@ -31,9 +31,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     setToken(token);
     setRole(typedRole);
+    
+    // ✅ CORRIGÉ: Ajout de nomComplet dans l'objet par défaut
     setUser(userData || { 
       id: 0, 
-      nomUtilisateur: '', 
+      nomUtilisateur: 'Utilisateur',
+      nomComplet: 'Utilisateur',          // ← AJOUTÉ
       role: typedRole, 
       coordination: '', 
       agence: '', 

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
 import { useAuth } from '../hooks/useAuth';
-import { AuthService } from '../Services/api/auth';
+import { UtilisateursService } from '../Services/api/utilisateurs';
 import { UserIcon, ShieldCheckIcon, BuildingOfficeIcon, EnvelopeIcon, KeyIcon } from '@heroicons/react/24/outline';
 
 interface UserProfile {
@@ -35,7 +35,7 @@ const Profil: React.FC = () => {
   const [isTablet, setIsTablet] = useState(false);
 
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   // Détection responsive
   useEffect(() => {
@@ -60,27 +60,67 @@ const Profil: React.FC = () => {
   const spacing = isMobile ? 'space-y-3' : isTablet ? 'space-y-4' : 'space-y-6';
   const gridCols = isMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-2' : 'grid-cols-3';
 
-  // ✅ Solution 1: Inclure fetchProfile dans les dépendances
+  // Charger le profil
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const userData = await AuthService.getProfile();
-      setProfile(userData);
+      
+      // Utiliser les données de l'utilisateur connecté depuis useAuth
+      if (user) {
+        // Vérifier si l'utilisateur a un ID
+        const userId = (user as any).id;
+        
+        if (userId) {
+          try {
+            // Essayer de récupérer le profil complet depuis l'API
+            const userData = await UtilisateursService.getUtilisateurById(userId);
+            setProfile({
+              id: userData.id,
+              nomUtilisateur: userData.nomUtilisateur,
+              role: userData.role as UserProfile['role'],
+              coordination: userData.coordination,
+              email: userData.email,
+              telephone: userData.telephone,
+              dateCreation: userData.dateCreation,
+              derniereConnexion: userData.derniereConnexion
+            });
+          } catch (apiError) {
+            console.error('Erreur API getUtilisateurById:', apiError);
+            // Fallback sur les données du contexte
+            setProfile({
+              id: userId,
+              nomUtilisateur: (user as any).nomUtilisateur || 'Utilisateur',
+              role: (user as any).role || 'Opérateur',
+              coordination: (user as any).coordination || 'Non défini',
+              email: (user as any).email,
+              telephone: (user as any).telephone,
+              dateCreation: (user as any).dateCreation,
+              derniereConnexion: (user as any).derniereConnexion
+            });
+          }
+        } else {
+          // Pas d'ID, utiliser les données du contexte directement
+          setProfile({
+            id: 0,
+            nomUtilisateur: (user as any).nomUtilisateur || 'Utilisateur',
+            role: (user as any).role || 'Opérateur',
+            coordination: (user as any).coordination || 'Non défini',
+            email: (user as any).email,
+            telephone: (user as any).telephone,
+            dateCreation: (user as any).dateCreation,
+            derniereConnexion: (user as any).derniereConnexion
+          });
+        }
+      } else {
+        setError('Utilisateur non connecté');
+      }
     } catch (err: any) {
       console.error('Erreur fetchProfile:', err);
-      if (err.response?.status === 401) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        setTimeout(() => {
-          logout();
-          navigate('/login');
-        }, 2000);
-      } else {
-        setError('Erreur lors de la récupération du profil');
-      }
+      setError('Erreur lors de la récupération du profil');
     } finally {
       setLoading(false);
     }
-  }, [logout, navigate]);
+  }, [user]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,22 +140,23 @@ const Profil: React.FC = () => {
     setSuccess('');
 
     try {
-      await AuthService.changePassword(currentPassword, newPassword);
+      const userId = (user as any)?.id;
+      if (!userId) {
+        throw new Error('ID utilisateur non trouvé');
+      }
+
+      // Mettre à jour le mot de passe via l'API
+      await UtilisateursService.updateUtilisateur(userId, {
+        motDePasse: newPassword
+      });
+      
       setSuccess('Mot de passe modifié avec succès !');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
       console.error('Erreur handleChangePassword:', err);
-      if (err.response?.status === 401) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        setTimeout(() => {
-          logout();
-          navigate('/login');
-        }, 2000);
-      } else {
-        setError(err.response?.data?.error || 'Erreur lors du changement de mot de passe');
-      }
+      setError(err.response?.data?.error || 'Erreur lors du changement de mot de passe');
     } finally {
       setChangingPassword(false);
     }
@@ -126,7 +167,6 @@ const Profil: React.FC = () => {
     navigate('/login');
   };
 
-  // ✅ Solution 1 (suite): useEffect avec fetchProfile dans les dépendances
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);

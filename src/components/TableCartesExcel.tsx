@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from '../hooks/useAuth';
-import { usePermissions } from '../hooks/usePermissions';
+// Supprimé useAuth et usePermissions car non utilisés
 import type { Carte } from "../types";
 import { 
   PencilIcon,
@@ -32,9 +31,8 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
   canEdit = true,
   editFields = []
 }) => {
-  // useAuth est utilisé implicitement via le hook usePermissions
-  useAuth();
-  usePermissions();
+  // Supprimé useAuth() et usePermissions() car non utilisés
+  // On utilise directement la prop 'role' passée par le parent
   
   const [editingCell, setEditingCell] = useState<{rowIndex: number, field: string} | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -57,7 +55,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     setLocalCartes(cartes);
   }, [cartes]);
 
-  // Configuration des permissions
+  // Configuration des permissions basée sur le rôle passé en props
   const isChefEquipe = role === "Chef d'équipe";
   const isOperateur = role === "Opérateur";
 
@@ -71,28 +69,35 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     if (isChefEquipe) {
       return chefEquipeFields.includes(field);
     }
-    if (editFields.length > 0) {
+    if (editFields && editFields.length > 0) {
       return editFields.includes(field);
     }
     return true; // Admin/Gestionnaire : tous les champs
   };
 
-  // Colonnes avec design harmonisé
+  // Colonnes avec tous les champs nécessaires
   const colonnes = [
+    { key: "coordination", label: "Coordination", icon: BuildingOfficeIcon, width: "w-28 md:w-32" },
+    { key: "lieuEnrolement", label: "Lieu Enr.", icon: MapPinIcon, width: "w-28 md:w-32" },
+    { key: "siteRetrait", label: "Site Retrait", icon: MapPinIcon, width: "w-28 md:w-32" },
+    { key: "rangement", label: "Rangement", icon: DocumentTextIcon, width: "w-24 md:w-28" },
     { key: "nom", label: "Nom", icon: UserIcon, width: "w-24 md:w-28" },
     { key: "prenom", label: "Prénom", icon: UserIcon, width: "w-24 md:w-28" },
-    { key: "telephone", label: "Téléphone", icon: PhoneIcon, width: "w-20 md:w-24" },
-    { key: "lieuNaissance", label: "Lieu Naissance", icon: MapPinIcon, width: "w-28 md:w-32" },
+    { key: "lieuNaissance", label: "Lieu Naiss.", icon: MapPinIcon, width: "w-28 md:w-32" },
     { key: "dateNaissance", label: "Date Naiss.", icon: CalendarIcon, width: "w-24 md:w-28" },
-    { key: "adresse", label: "Adresse", icon: BuildingOfficeIcon, width: "w-28 md:w-32" },
     { key: "delivrance", label: "Délivrance", icon: CheckCircleIcon, width: "w-20 md:w-24" },
-    { key: "contactRetrait", label: "Contact Retrait", icon: PhoneIcon, width: "w-20 md:w-24" },
-    { key: "dateDelivrance", label: "Date Retrait", icon: CalendarIcon, width: "w-24 md:w-28" }
+    { key: "dateDelivrance", label: "Date Retrait", icon: CalendarIcon, width: "w-24 md:w-28" },
+    { key: "contactRetrait", label: "Contact Retrait", icon: PhoneIcon, width: "w-24 md:w-28" },
+    { key: "telephone", label: "Téléphone", icon: PhoneIcon, width: "w-20 md:w-24" }
   ];
 
   // Obtenir la valeur d'une cellule
   const getCellValue = (carte: Carte, field: string): string => {
     switch (field) {
+      case 'coordination': return carte.coordination || '-';
+      case 'lieuEnrolement': return (carte as any).lieuEnrolement || carte.coordination || '-';
+      case 'siteRetrait': return (carte as any).siteRetrait || 'Site principal';
+      case 'rangement': return (carte as any).rangement || '-';
       case 'nom': return carte.nom || '-';
       case 'prenom': return carte.prenom || '-';
       case 'telephone': return carte.telephone || '-';
@@ -218,7 +223,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </div>
           </div>
           
-          {/* Badge permissions */}
+          {/* Badge permissions basé sur le rôle */}
           <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
             isOperateur ? 'bg-gray-500/20 text-gray-200' :
             isChefEquipe ? 'bg-orange-500/20 text-orange-200' :

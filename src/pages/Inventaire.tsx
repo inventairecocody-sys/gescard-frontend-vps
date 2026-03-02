@@ -3,33 +3,44 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import TableCartesExcel from "../components/TableCartesExcel";
 import ImportModal from "../components/ImportModal";
+import SiteDropdown from "../components/SiteDropdown";
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { CartesService } from '../Services/api/cartes';
 import type { QueryParams } from '../types';
 
-// ✅ CORRIGÉ: Ajout de ArrowPathIcon dans la liste
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
-  ArrowPathIcon,      // ← Maintenant présent !
+  ArrowPathIcon,
   DocumentArrowUpIcon,
   DocumentArrowDownIcon,
   DocumentTextIcon,
   TableCellsIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  MapPinIcon,
+  CalendarIcon,
+  UserIcon,
+  PhoneIcon,
+  IdentificationIcon,
+  BuildingOfficeIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 
 interface CriteresRecherche {
-  nom: string;
-  prenom: string;
-  contact: string;
+  coordination: string;
+  lieuEnrolement: string;
   siteRetrait: string;
+  rangement: string;
+  nom: string;
+  prenoms: string;
   lieuNaissance: string;
   dateNaissance: string;
-  rangement: string;
+  delivrance: string;
+  dateDelivrance: string;
+  contactRetrait: string;
 }
 
 interface ExportProgress {
@@ -40,8 +51,8 @@ interface ExportProgress {
   estimatedTime: string;
 }
 
-// Interface locale pour la compatibilité avec TableCartesExcel
-interface CarteLocale {
+// Interface étendue pour inclure les propriétés supplémentaires
+interface CarteEtendue {
   id: number;
   codeCarte?: string;
   nom?: string;
@@ -55,6 +66,9 @@ interface CarteLocale {
   contactRetrait?: string;
   dateDelivrance?: string;
   coordination: string;
+  lieuEnrolement?: string;
+  siteRetrait?: string;
+  rangement?: string;
   dateCreation: string;
   dateModification?: string;
   createurId?: number;
@@ -68,7 +82,7 @@ const Inventaire: React.FC = () => {
   const isChefEquipe = hasRole(["Chef d'équipe"]);
   const isOperateur = hasRole(['Opérateur']);
 
-  const [resultats, setResultats] = useState<CarteLocale[]>([]);
+  const [resultats, setResultats] = useState<CarteEtendue[]>([]);
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
@@ -91,21 +105,25 @@ const Inventaire: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
 
-  // État des critères de recherche
+  // État des critères de recherche - TOUS LES CHAMPS
   const [criteres, setCriteres] = useState<CriteresRecherche>({
-    nom: "",
-    prenom: "",
-    contact: "",
+    coordination: "",
+    lieuEnrolement: "",
     siteRetrait: "",
+    rangement: "",
+    nom: "",
+    prenoms: "",
     lieuNaissance: "",
     dateNaissance: "",
-    rangement: ""
+    delivrance: "",
+    dateDelivrance: "",
+    contactRetrait: ""
   });
 
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const exportStartTimeRef = useRef<number>(0);
   
-  // Ajouter une variable pour le format d'export (utilisée dans le modal)
+  // Format d'export
   const currentExportFormat = useRef<'csv' | 'excel'>('csv');
 
   // Détection responsive
@@ -127,7 +145,7 @@ const Inventaire: React.FC = () => {
   const inputSize = isMobile ? 'px-3 py-2 text-sm' : isTablet ? 'px-4 py-2.5' : 'px-4 py-3';
   const buttonSize = isMobile ? 'px-3 py-2 text-xs' : isTablet ? 'px-4 py-2.5 text-sm' : 'px-4 py-3';
   const iconSize = isMobile ? 'w-4 h-4' : isTablet ? 'w-5 h-5' : 'w-5 h-5';
-  const gridCols = isMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4';
+  const gridCols = isMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-3';
 
   // Recherche multicritères avec pagination
   const handleRecherche = async (page: number = 1) => {
@@ -138,17 +156,23 @@ const Inventaire: React.FC = () => {
         limit: 50
       };
       
-      if (criteres.nom) params.nom = criteres.nom;
-      if (criteres.prenom) params.prenom = criteres.prenom;
-      if (criteres.contact) params.contact = criteres.contact;
+      // Ajouter tous les critères de recherche
+      if (criteres.coordination) params.coordination = criteres.coordination;
+      if (criteres.lieuEnrolement) params.lieuEnrolement = criteres.lieuEnrolement;
       if (criteres.siteRetrait) params.siteRetrait = criteres.siteRetrait;
+      if (criteres.rangement) params.rangement = criteres.rangement;
+      if (criteres.nom) params.nom = criteres.nom;
+      if (criteres.prenoms) params.prenoms = criteres.prenoms;
       if (criteres.lieuNaissance) params.lieuNaissance = criteres.lieuNaissance;
       if (criteres.dateNaissance) params.dateNaissance = criteres.dateNaissance;
-      if (criteres.rangement) params.rangement = criteres.rangement;
+      if (criteres.delivrance) params.delivrance = criteres.delivrance === 'oui' ? true : criteres.delivrance === 'non' ? false : undefined;
+      if (criteres.dateDelivrance) params.dateDelivrance = criteres.dateDelivrance;
+      if (criteres.contactRetrait) params.contactRetrait = criteres.contactRetrait;
 
       const response = await CartesService.getCartes(params);
 
-      const cartesConverties: CarteLocale[] = response.data.map(carte => ({
+      // Utiliser 'as any' pour éviter les erreurs TypeScript
+      const cartesConverties: CarteEtendue[] = response.data.map((carte: any) => ({
         id: carte.id,
         codeCarte: carte.codeCarte,
         nom: carte.nom,
@@ -162,6 +186,9 @@ const Inventaire: React.FC = () => {
         contactRetrait: carte.contactRetrait,
         dateDelivrance: carte.dateDelivrance,
         coordination: carte.coordination,
+        lieuEnrolement: carte.lieuEnrolement || carte.coordination,
+        siteRetrait: carte.siteRetrait || 'Site principal',
+        rangement: carte.rangement || 'N/A',
         dateCreation: carte.dateCreation || new Date().toISOString(),
         dateModification: carte.dateModification,
         createurId: carte.createurId,
@@ -202,7 +229,7 @@ const Inventaire: React.FC = () => {
             dateDelivrance: carte.dateDelivrance
           });
         } else {
-          await CartesService.updateCarte(carte.id, carte);
+          await CartesService.updateCarte(carte.id, carte as any);
         }
       }
       
@@ -295,9 +322,9 @@ const Inventaire: React.FC = () => {
   const handleDownloadTemplate = async (format: 'csv' | 'excel') => {
     try {
       if (format === 'csv') {
-        const csvTemplate = `NOM,PRENOM,TELEPHONE,EMAIL,DATE_NAISSANCE,LIEU_NAISSANCE,CONTACT_RETRAIT
-KOUAME,Jean,01234567,jean@email.com,2001-07-12,Abidjan,07654321
-TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
+        const csvTemplate = `COORDINATION,LIEU_ENROLEMENT,SITE_RETRAIT,RANGEMENT,NOM,PRENOMS,LIEU_NAISSANCE,DATE_NAISSANCE,DELIVRANCE,DATE_DELIVRANCE,CONTACT_RETRAIT
+COORDINATION NORD,ABIDJAN,SITE PRINCIPAL,A-01,KOUAME,JEAN,ABIDJAN,1990-01-01,OUI,2024-01-01,0708091011
+COORDINATION SUD,YAMOUSSOUKRO,SECONDAIRE,B-02,TRAORE,AMINA,BOUAKE,1995-05-15,NON,,0607080910`;
         
         const blob = new Blob([csvTemplate], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
@@ -316,25 +343,35 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
     }
   };
 
-  const handleUpdateResultats = (nouvellesCartes: CarteLocale[]) => {
+  const handleUpdateResultats = (nouvellesCartes: CarteEtendue[]) => {
     setResultats(nouvellesCartes);
     setHasModifications(true);
   };
 
   const handleReset = () => {
     setCriteres({
-      nom: "",
-      prenom: "",
-      contact: "",
+      coordination: "",
+      lieuEnrolement: "",
       siteRetrait: "",
+      rangement: "",
+      nom: "",
+      prenoms: "",
       lieuNaissance: "",
       dateNaissance: "",
-      rangement: ""
+      delivrance: "",
+      dateDelivrance: "",
+      contactRetrait: ""
     });
     setResultats([]);
     setTotalResultats(0);
     setCurrentPage(1);
     setTotalPages(1);
+  };
+
+  // Gestionnaire pour SiteDropdown - adapté aux props du composant
+  const handleSiteChange = (value: string | string[]) => {
+    // Comme c'est une sélection unique (multiple n'est pas activé), value est un string
+    setCriteres({...criteres, siteRetrait: value as string});
   };
 
   const handlePageChange = (newPage: number) => {
@@ -358,7 +395,7 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
             Inventaire des Cartes
           </h1>
           <p className={`text-white/90 mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-            {user?.coordination}
+            {user?.coordination || 'COORDINATION'}
           </p>
         </div>
       </div>
@@ -386,100 +423,63 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
               className={`${buttonSize} bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center gap-2 transition-colors`}
             >
               <FunnelIcon className={iconSize} />
-              {!isMobile && 'Filtres'}
+              {!isMobile && (showFilters ? 'Masquer' : 'Filtres')}
             </button>
           </div>
           
           {showFilters && (
             <div className={`grid ${gridCols} gap-3 md:gap-4 mb-4 md:mb-6`}>
               
-              {/* Nom */}
+              {/* COORDINATION */}
               <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Nom
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <BuildingOfficeIcon className="w-3 h-3 text-orange-500" />
+                  COORDINATION
                 </label>
                 <input
                   type="text"
-                  value={criteres.nom}
-                  onChange={(e) => setCriteres({...criteres, nom: e.target.value})}
-                  placeholder="Nom..."
+                  value={criteres.coordination}
+                  onChange={(e) => setCriteres({...criteres, coordination: e.target.value})}
+                  placeholder="Coordination..."
                   className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
                 />
               </div>
 
-              {/* Prénom */}
+              {/* LIEU D'ENROLEMENT */}
               <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Prénom
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <MapPinIcon className="w-3 h-3 text-orange-500" />
+                  LIEU D'ENROLEMENT
                 </label>
                 <input
                   type="text"
-                  value={criteres.prenom}
-                  onChange={(e) => setCriteres({...criteres, prenom: e.target.value})}
-                  placeholder="Prénom..."
+                  value={criteres.lieuEnrolement}
+                  onChange={(e) => setCriteres({...criteres, lieuEnrolement: e.target.value})}
+                  placeholder="Lieu d'enrolement..."
                   className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
                 />
               </div>
 
-              {/* Contact */}
+              {/* SITE DE RETRAIT - AVEC SiteDropdown CORRIGÉ */}
               <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Contact
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <GlobeAltIcon className="w-3 h-3 text-orange-500" />
+                  SITE DE RETRAIT
                 </label>
-                <input
-                  type="text"
-                  value={criteres.contact}
-                  onChange={(e) => setCriteres({...criteres, contact: e.target.value})}
-                  placeholder="Téléphone..."
-                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                <SiteDropdown 
+                  multiple={false}
+                  selectedSites={criteres.siteRetrait}
+                  onChange={handleSiteChange}
+                  placeholder="Sélectionner un site de retrait"
+                  className="w-full"
                 />
               </div>
 
-              {/* Site de retrait */}
+              {/* RANGEMENT */}
               <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Site de retrait
-                </label>
-                <input
-                  type="text"
-                  value={criteres.siteRetrait}
-                  onChange={(e) => setCriteres({...criteres, siteRetrait: e.target.value})}
-                  placeholder="Site..."
-                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
-                />
-              </div>
-
-              {/* Lieu de naissance */}
-              <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Lieu de naissance
-                </label>
-                <input
-                  type="text"
-                  value={criteres.lieuNaissance}
-                  onChange={(e) => setCriteres({...criteres, lieuNaissance: e.target.value})}
-                  placeholder="Lieu..."
-                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
-                />
-              </div>
-
-              {/* Date de naissance */}
-              <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Date de naissance
-                </label>
-                <input
-                  type="date"
-                  value={criteres.dateNaissance}
-                  onChange={(e) => setCriteres({...criteres, dateNaissance: e.target.value})}
-                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
-                />
-              </div>
-
-              {/* Rangement */}
-              <div>
-                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                  Rangement
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <IdentificationIcon className="w-3 h-3 text-orange-500" />
+                  RANGEMENT
                 </label>
                 <input
                   type="text"
@@ -490,33 +490,138 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
                 />
               </div>
 
-              {/* Bouton recherche */}
-              <div className="flex items-end">
-                <motion.button
-                  onClick={() => handleRecherche(1)}
-                  disabled={loading}
-                  whileHover={{ scale: loading ? 1 : 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`w-full bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white rounded-xl hover:from-[#e46f00] hover:to-[#FF8C00] disabled:opacity-50 font-semibold transition-all shadow-lg ${buttonSize} flex items-center justify-center gap-2`}
+              {/* NOM */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <UserIcon className="w-3 h-3 text-orange-500" />
+                  NOM
+                </label>
+                <input
+                  type="text"
+                  value={criteres.nom}
+                  onChange={(e) => setCriteres({...criteres, nom: e.target.value})}
+                  placeholder="Nom..."
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
+              </div>
+
+              {/* PRÉNOMS */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <UserIcon className="w-3 h-3 text-orange-500" />
+                  PRÉNOMS
+                </label>
+                <input
+                  type="text"
+                  value={criteres.prenoms}
+                  onChange={(e) => setCriteres({...criteres, prenoms: e.target.value})}
+                  placeholder="Prénoms..."
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
+              </div>
+
+              {/* LIEU NAISSANCE */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <MapPinIcon className="w-3 h-3 text-orange-500" />
+                  LIEU NAISSANCE
+                </label>
+                <input
+                  type="text"
+                  value={criteres.lieuNaissance}
+                  onChange={(e) => setCriteres({...criteres, lieuNaissance: e.target.value})}
+                  placeholder="Lieu de naissance..."
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
+              </div>
+
+              {/* DATE DE NAISSANCE */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <CalendarIcon className="w-3 h-3 text-orange-500" />
+                  DATE DE NAISSANCE
+                </label>
+                <input
+                  type="date"
+                  value={criteres.dateNaissance}
+                  onChange={(e) => setCriteres({...criteres, dateNaissance: e.target.value})}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
+              </div>
+
+              {/* DÉLIVRANCE */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <CheckCircleIcon className="w-3 h-3 text-orange-500" />
+                  DÉLIVRANCE
+                </label>
+                <select
+                  value={criteres.delivrance}
+                  onChange={(e) => setCriteres({...criteres, delivrance: e.target.value})}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
                 >
-                  {loading ? (
-                    <>
-                      <ArrowPathIcon className={`${iconSize} animate-spin`} />
-                      <span>Recherche...</span>
-                    </>
-                  ) : (
-                    <>
-                      <MagnifyingGlassIcon className={iconSize} />
-                      <span>Rechercher</span>
-                    </>
-                  )}
-                </motion.button>
+                  <option value="">Tous</option>
+                  <option value="oui">Oui</option>
+                  <option value="non">Non</option>
+                </select>
+              </div>
+
+              {/* DATE DE DÉLIVRANCE */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <CalendarIcon className="w-3 h-3 text-orange-500" />
+                  DATE DE DÉLIVRANCE
+                </label>
+                <input
+                  type="date"
+                  value={criteres.dateDelivrance}
+                  onChange={(e) => setCriteres({...criteres, dateDelivrance: e.target.value})}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
+              </div>
+
+              {/* CONTACT DE RETRAIT */}
+              <div>
+                <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                  <PhoneIcon className="w-3 h-3 text-orange-500" />
+                  CONTACT DE RETRAIT
+                </label>
+                <input
+                  type="text"
+                  value={criteres.contactRetrait}
+                  onChange={(e) => setCriteres({...criteres, contactRetrait: e.target.value})}
+                  placeholder="Contact de retrait..."
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 ${inputSize}`}
+                />
               </div>
             </div>
           )}
 
+          {/* Bouton recherche */}
+          <div className="flex justify-center">
+            <motion.button
+              onClick={() => handleRecherche(1)}
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white rounded-xl hover:from-[#e46f00] hover:to-[#FF8C00] disabled:opacity-50 font-semibold transition-all shadow-lg ${buttonSize} px-8 flex items-center justify-center gap-2`}
+            >
+              {loading ? (
+                <>
+                  <ArrowPathIcon className={`${iconSize} animate-spin`} />
+                  <span>Recherche...</span>
+                </>
+              ) : (
+                <>
+                  <MagnifyingGlassIcon className={iconSize} />
+                  <span>Rechercher</span>
+                </>
+              )}
+            </motion.button>
+          </div>
+
           {/* Actions */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-3 pt-4 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-3 pt-4 border-t border-gray-200 mt-4">
             <div className="flex gap-2">
               <motion.button
                 onClick={handleReset}
@@ -665,9 +770,9 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
             {/* Tableau */}
             <div className="overflow-x-auto">
               <TableCartesExcel 
-                cartes={resultats}
+                cartes={resultats as any}
                 role={user?.role || ''}
-                onUpdateCartes={handleUpdateResultats}
+                onUpdateCartes={handleUpdateResultats as any}
                 canEdit={!isOperateur}
                 editFields={isChefEquipe ? ['delivrance', 'contactRetrait', 'dateDelivrance'] : undefined}
               />
@@ -687,7 +792,7 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
                   className={`${buttonSize} bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 font-semibold shadow-lg flex items-center gap-2`}
                 >
                   <CheckCircleIcon className={iconSize} />
-                  Enregistrer
+                  Enregistrer les modifications
                 </motion.button>
               </motion.div>
             )}

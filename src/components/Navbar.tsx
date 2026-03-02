@@ -70,15 +70,15 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     navigate('/login');
   };
 
-  // Navigation items avec Heroicons - ✅ CORRIGÉ
+  // Navigation items avec orange comme couleur principale
   const navItems = [
     {
       path: "/home",
-      label: "Accueil",                    // ← "Accueil" au lieu de "Home"
-      labelShort: "Accueil",                // ← "Accueil" au lieu de "Home"
+      label: "Accueil",
+      labelShort: "Accueil",
       icon: HomeIcon,
-      color: "from-orange-500 to-orange-400",
-      hoverColor: "hover:bg-orange-50 hover:text-orange-600",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: true
     },
     {
@@ -86,17 +86,17 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
       label: "Inventaire",
       labelShort: "Recherche",
       icon: MagnifyingGlassIcon,
-      color: "from-blue-600 to-green-500",
-      hoverColor: "hover:bg-blue-50 hover:text-blue-600",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: canView('inventaire')
     },
     {
       path: "/dashboard",
-      label: "Tableau de bord",             // ← "Tableau de bord" au lieu de "Dashboard"
-      labelShort: "Tableau",                 // ← "Tableau" au lieu de "Dashboard"
+      label: "Tableau de bord",
+      labelShort: "Tableau",
       icon: ChartBarIcon,
-      color: "from-green-500 to-blue-600",
-      hoverColor: "hover:bg-green-50 hover:text-green-600",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: canView('dashboard')
     },
     {
@@ -104,8 +104,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
       label: "Journal",
       labelShort: "Journal",
       icon: DocumentTextIcon,
-      color: "from-purple-500 to-indigo-600",
-      hoverColor: "hover:bg-purple-50 hover:text-purple-600",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: canView('journal')
     },
     {
@@ -113,8 +113,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
       label: "Gestion comptes",
       labelShort: "Comptes",
       icon: UsersIcon,
-      color: "from-purple-600 to-indigo-700",
-      hoverColor: "hover:bg-purple-50 hover:text-purple-700",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: canView('gestion-comptes')
     },
     {
@@ -122,8 +122,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
       label: "Profil",
       labelShort: "Profil",
       icon: UserIcon,
-      color: "from-orange-500 to-blue-600",
-      hoverColor: "hover:bg-orange-50 hover:text-orange-600",
+      color: "from-[#F77F00] to-[#FF9E40]", // Orange
+      hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]",
       permission: canView('profil')
     }
   ].filter(item => item.permission);
@@ -143,18 +143,18 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
             
-            {/* Logo */}
+            {/* Logo - modifié pour utiliser uniquement l'orange */}
             <div className="flex items-center flex-shrink-0">
               <Link to="/home" className="flex items-center gap-2">
                 <div className="relative">
-                  <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-r from-orange-500 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] rounded-lg md:rounded-xl flex items-center justify-center shadow-md">
                     <ShieldCheckIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                   </div>
                   <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-green-500 rounded-full border border-white animate-pulse"></div>
                 </div>
                 
                 <div className="text-left hidden md:block">
-                  <span className="font-bold bg-gradient-to-r from-orange-500 to-blue-600 bg-clip-text text-transparent text-sm">
+                  <span className="font-bold bg-gradient-to-r from-[#F77F00] to-[#FF9E40] bg-clip-text text-transparent text-sm">
                     GESCARD
                   </span>
                   <span className="block text-xs text-gray-500 truncate max-w-[120px]">
@@ -164,7 +164,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
               </Link>
             </div>
 
-            {/* Menu Desktop */}
+            {/* Menu Desktop - tout en orange */}
             <div className="hidden lg:flex items-center gap-1 xl:gap-2 flex-1 justify-center">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -195,7 +195,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 );
               })}
               
-              {/* Bouton Déconnexion */}
+              {/* Bouton Déconnexion (inchangé) */}
               <motion.button
                 onClick={() => setShowLogoutConfirm(true)}
                 whileHover={{ scale: 1.05 }}
@@ -210,16 +210,16 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 </span>
               </motion.button>
 
-              {/* Badge rôle */}
-              <div className="ml-2 px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20 flex items-center gap-1">
-                <ShieldCheckIcon className="w-3 h-3 text-orange-600" />
-                <span className="text-xs font-semibold text-orange-600 truncate max-w-[80px]">
+              {/* Badge rôle - modifié pour orange */}
+              <div className="ml-2 px-2 py-1 bg-gradient-to-r from-[#F77F00]/10 to-[#FF9E40]/10 rounded-full border border-[#F77F00]/20 flex items-center gap-1">
+                <ShieldCheckIcon className="w-3 h-3 text-[#F77F00]" />
+                <span className="text-xs font-semibold text-[#F77F00] truncate max-w-[80px]">
                   {userRole}
                 </span>
               </div>
             </div>
 
-            {/* Menu tablette */}
+            {/* Menu tablette - modifié pour orange */}
             <div className="hidden md:flex lg:hidden items-center gap-2">
               {navItems.slice(0, 3).map((item) => {
                 const Icon = item.icon;
@@ -239,7 +239,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 );
               })}
               
-              {/* Menu déroulant tablette */}
+              {/* Menu déroulant tablette - modifié pour orange */}
               {navItems.length > 3 && (
                 <div className="relative group">
                   <button className="p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
@@ -265,6 +265,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 </div>
               )}
               
+              {/* Bouton déconnexion tablette (inchangé) */}
               <motion.button
                 onClick={() => setShowLogoutConfirm(true)}
                 whileTap={{ scale: 0.95 }}
@@ -275,10 +276,10 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
               </motion.button>
             </div>
 
-            {/* Menu mobile */}
+            {/* Menu mobile - modifié pour orange */}
             <div className="flex items-center gap-2 md:hidden">
-              <div className="px-2 py-1 bg-gradient-to-r from-orange-500/10 to-blue-600/10 rounded-full border border-orange-500/20">
-                <span className="text-xs font-semibold text-orange-600">
+              <div className="px-2 py-1 bg-gradient-to-r from-[#F77F00]/10 to-[#FF9E40]/10 rounded-full border border-[#F77F00]/20">
+                <span className="text-xs font-semibold text-[#F77F00]">
                   {userRole.length > 8 ? userRole.substring(0, 6) + '...' : userRole}
                 </span>
               </div>
@@ -297,8 +298,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 whileTap={{ scale: 0.95 }}
                 className={`p-2 rounded-lg shadow-lg ${
                   isMenuOpen 
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-400 text-white' 
-                    : 'bg-gradient-to-r from-blue-600 to-green-500 text-white'
+                    ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white' 
+                    : 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white' // Orange partout
                 }`}
               >
                 {isMenuOpen ? (
@@ -311,7 +312,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
           </div>
         </div>
 
-        {/* Overlay mobile */}
+        {/* Overlay mobile (inchangé) */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -324,7 +325,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
           )}
         </AnimatePresence>
 
-        {/* Menu mobile */}
+        {/* Menu mobile - modifié pour orange */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -364,14 +365,14 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                   );
                 })}
                 
-                {/* Info utilisateur */}
+                {/* Info utilisateur - modifié pour orange */}
                 <div className="border-t border-gray-200 my-2 pt-2">
-                  <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-blue-50 rounded-xl">
+                  <div className="px-4 py-3 bg-gradient-to-r from-[#F77F00]/10 to-[#FF9E40]/10 rounded-xl">
                     <div className="text-xs text-gray-600 mb-2">Connecté en tant que</div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <ShieldCheckIcon className="w-4 h-4 text-orange-600" />
-                        <span className="font-semibold text-orange-600 text-sm">{userRole}</span>
+                        <ShieldCheckIcon className="w-4 h-4 text-[#F77F00]" />
+                        <span className="font-semibold text-[#F77F00] text-sm">{userRole}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <ClockIcon className="w-3 h-3 text-green-600" />
@@ -399,7 +400,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 </div>
               </div>
               
-              {/* Pied de menu */}
+              {/* Pied de menu (inchangé) */}
               <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
                 <div className="text-center space-y-1">
                   <div className="text-xs text-gray-600 font-medium">GESCARD v2.0.0</div>
@@ -413,7 +414,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
       
       <div className={`${isMobile ? 'h-14' : 'h-16'}`}></div>
 
-      {/* Modal de déconnexion */}
+      {/* Modal de déconnexion (inchangé) */}
       <AnimatePresence>
         {showLogoutConfirm && (
           <motion.div
