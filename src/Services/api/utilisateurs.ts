@@ -1,8 +1,16 @@
 import { apiClient } from './client';
-import type { Utilisateur, PaginatedResponse, QueryParams } from '../../types';
+import type {
+  Utilisateur,
+  PaginatedResponse,
+  QueryParams,
+} from '../../types';
 
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+
+// ✅ nomComplet ajouté
 export interface CreateUtilisateurData {
   nomUtilisateur: string;
+  nomComplet?: string;
   role: string;
   coordination: string;
   agence: string;
@@ -11,7 +19,9 @@ export interface CreateUtilisateurData {
   motDePasse: string;
 }
 
+// ✅ nomComplet ajouté
 export interface UpdateUtilisateurData {
+  nomComplet?: string;
   role?: string;
   coordination?: string;
   agence?: string;
@@ -21,15 +31,55 @@ export interface UpdateUtilisateurData {
   actif?: boolean;
 }
 
+// ─── Service ──────────────────────────────────────────────────────────────────
+
 export const UtilisateursService = {
+
+  /**
+   * ✅ BUG #4 CORRIGÉ
+   * Le backend retourne { success, utilisateurs: [], pagination: {} }
+   * et NON { data: [] } comme PaginatedResponse<T> l'attendait.
+   */
   async getUtilisateurs(params?: QueryParams): Promise<PaginatedResponse<Utilisateur>> {
-    const response = await apiClient.get<PaginatedResponse<Utilisateur>>('/utilisateurs', { params });
-    return response.data;
+    const response = await apiClient.get<{
+      success: boolean;
+      utilisateurs: Utilisateur[];
+      pagination?: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+      };
+    }>('/utilisateurs', { params });
+
+    return {
+      data: response.data.utilisateurs || [],
+      pagination: {
+        page:       response.data.pagination?.page       ?? 1,
+        limit:      response.data.pagination?.limit      ?? 100,
+        total:      response.data.pagination?.total      ?? 0,
+        totalPages: response.data.pagination?.totalPages ?? 1,
+      },
+    };
   },
 
+  /**
+   * ✅ BUG #3 CORRIGÉ
+   * Le backend retourne { success: true, utilisateur: { ... } }
+   * et NON { data: { ... } }.
+   */
   async getUtilisateurById(id: number): Promise<Utilisateur> {
-    const response = await apiClient.get<{ data: Utilisateur }>(`/utilisateurs/${id}`);
-    return response.data.data;
+    const response = await apiClient.get<{
+      success: boolean;
+      utilisateur: Utilisateur;
+    }>(`/utilisateurs/${id}`);
+
+    if (!response.data.utilisateur) {
+      throw new Error(`Utilisateur ${id} non trouvé ou réponse invalide du serveur`);
+    }
+    return response.data.utilisateur;
   },
 
   async createUtilisateur(data: CreateUtilisateurData): Promise<Utilisateur> {
@@ -49,4 +99,5 @@ export const UtilisateursService = {
   async activateUtilisateur(id: number): Promise<void> {
     await apiClient.post(`/utilisateurs/${id}/activate`);
   }
+
 };

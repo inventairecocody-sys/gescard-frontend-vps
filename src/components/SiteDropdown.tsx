@@ -1,8 +1,8 @@
-  import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../Services/api/client';
-import { 
-  ChevronDownIcon, 
+import {
+  ChevronDownIcon,
   ChevronUpIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -52,7 +52,9 @@ const SiteDropdown: React.FC<SiteDropdownProps> = ({
     
     setLoading(true);
     try {
-      const response = await api.get('/api/import-export/sites');
+      // ✅ BUG #1 CORRIGÉ : baseURL axios = '.../api', le chemin ne doit pas re-inclure '/api'
+      // L'ancien chemin '/api/import-export/sites' produisait → /api/api/import-export/sites (404)
+      const response = await api.get('/import-export/sites');
       setSites(response.data.sites || []);
       setFilteredSites(response.data.sites || []);
     } catch (error) {

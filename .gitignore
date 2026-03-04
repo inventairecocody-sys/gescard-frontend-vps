@@ -1,5 +1,7 @@
-# Logs
-logs
+# ==============================
+# LOGS
+# ==============================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,15 +9,25 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ==============================
+# DEPENDANCES / BUILD
+# ==============================
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# ==============================
+# FICHIERS SENSIBLES / PERSO
+# ==============================
+consolider-frontend.cjs
+
+# ==============================
+# EDITEURS / SYSTEME
+# ==============================
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*

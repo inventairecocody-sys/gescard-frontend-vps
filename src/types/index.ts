@@ -51,7 +51,7 @@ export interface AuthResponse {
 export interface Utilisateur {
   id: number;
   nomUtilisateur: string;
-  nomComplet: string;                    // ← AJOUTÉ (nom complet pour affichage)
+  nomComplet: string;
   role: UserRole;
   coordination: string;
   agence: string;
@@ -85,10 +85,16 @@ export interface Carte {
   adresse?: string;
   telephone?: string;
   email?: string;
-  delivrance?: boolean;
+  contact?: string;
+  // ✅ CORRECTION : delivrance est du texte en base (nom de la personne ou "Délivré"),
+  //                 pas un booléen. Une valeur non vide = carte délivrée.
+  delivrance?: string;
   contactRetrait?: string;
   dateDelivrance?: string;
   coordination: string;
+  lieuEnrolement?: string;
+  siteRetrait?: string;
+  rangement?: string;
   dateCreation: string;
   dateModification?: string;
   createurId?: number;
@@ -104,14 +110,20 @@ export interface CarteFormData {
   adresse?: string;
   telephone?: string;
   email?: string;
-  delivrance?: boolean;
+  contact?: string;
+  // ✅ CORRECTION : string pour correspondre à la réalité de la base
+  delivrance?: string;
   contactRetrait?: string;
   dateDelivrance?: string;
   coordination?: string;
+  lieuEnrolement?: string;
+  siteRetrait?: string;
+  rangement?: string;
 }
 
 export interface ChefEquipeEditFields {
-  delivrance?: boolean;
+  // ✅ CORRECTION : string pour correspondre à la réalité de la base
+  delivrance?: string;
   contactRetrait?: string;
   dateDelivrance?: string;
 }
@@ -121,10 +133,10 @@ export interface ChefEquipeEditFields {
 // ========================================
 
 export interface StatistiquesGlobales {
-  total: number;                    // total_cartes
-  retires: number;                  // cartes_retirees
-  restants: number;                 // cartes_restantes
-  tauxRetrait: number;              // taux de retrait en %
+  total: number;
+  retires: number;
+  restants: number;
+  tauxRetrait: number;
   metadata?: {
     sites_actifs: number;
     beneficiaires_uniques: number;
@@ -134,11 +146,11 @@ export interface StatistiquesGlobales {
 }
 
 export interface StatistiqueSite {
-  site: string;                     // Nom du site
-  total: number;                    // Total des cartes pour ce site
-  retires: number;                  // Cartes retirées (délivrées)
-  restants: number;                 // Cartes en attente
-  tauxRetrait: number;              // Taux de retrait en %
+  site: string;
+  total: number;
+  retires: number;
+  restants: number;
+  tauxRetrait: number;
 }
 
 // Types pour compatibilité avec l'ancien code

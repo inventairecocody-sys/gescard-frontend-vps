@@ -1,3 +1,4 @@
+// src/pages/Inventaire.tsx
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -7,8 +8,8 @@ import SiteDropdown from "../components/SiteDropdown";
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { CartesService } from '../Services/api/cartes';
+import { ImportExportService } from '../Services/api/import-export';
 import type { QueryParams } from '../types';
-
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
@@ -224,7 +225,8 @@ const Inventaire: React.FC = () => {
       for (const carte of cartesModifiees) {
         if (isChefEquipe) {
           await CartesService.updateCarte(carte.id, {
-            delivrance: carte.delivrance,
+            // CarteFormData.delivrance attend un string ('OUI'/'NON'), pas un boolean
+            delivrance: carte.delivrance === true ? 'OUI' : carte.delivrance === false ? 'NON' : undefined,
             contactRetrait: carte.contactRetrait,
             dateDelivrance: carte.dateDelivrance
           });
@@ -243,24 +245,38 @@ const Inventaire: React.FC = () => {
   };
 
   // Import
+  // ✅ CORRECTION handleImport
+  // AVANT : await new Promise(resolve => setTimeout(resolve, 2000))
+  //         → simulait un import, rien n'était envoyé au serveur
+  // APRÈS  : appel réel à ImportExportService.importFile()
   const handleImport = async (file: File) => {
     setImportLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      alert('Import réussi !');
+      const result = await ImportExportService.importFile(file, importMode);
+
+      const imported = result.stats?.imported ?? 0;
+      const updated  = result.stats?.updated ?? 0;
+      const errors   = result.stats?.errors ?? 0;
+
+      const msg = [
+        `✅ Import terminé !`,
+        `• ${imported} nouvelle(s) carte(s)`,
+        `• ${updated} mise(s) à jour`,
+        errors > 0 ? `• ⚠️ ${errors} erreur(s)` : null,
+      ].filter(Boolean).join('\n');
+
+      alert(msg);
       setShowImportModal(false);
-      
-      if (resultats.length > 0) {
+
+      // Rafraîchir si des données ont été importées ou mises à jour
+      if (imported > 0 || updated > 0) {
         handleRecherche(currentPage);
       }
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Erreur import:', error);
-      alert('Erreur lors de l\'import');
+      const msg = error.response?.data?.message || error.response?.data?.erreur || error.message || "Erreur lors de l'import";
+      alert(`❌ ${msg}`);
     } finally {
       setImportLoading(false);
     }
@@ -284,35 +300,51 @@ const Inventaire: React.FC = () => {
       estimatedTime: 'Calcul...'
     });
     
-    try {
-      const interval = setInterval(() => {
-        setExportProgress(prev => ({
-          ...prev,
-          percentage: Math.min(prev.percentage + 10, 90),
-          loaded: prev.loaded + 102400,
-          speed: '50 KB/s'
-        }));
-      }, 500);
+    // ✅ CORRECTION handleExport
+    // AVANT : simulait une barre de progression sans appeler l'API
+    //         → aucun fichier n'était téléchargé
+    // APRÈS  : appel réel à ImportExportService.exportComplete()
+    //          puis déclenchement du téléchargement via un lien <a>
+    const interval = setInterval(() => {
+      setExportProgress(prev => {
+        if (prev.percentage >= 80) return prev;
+        return { ...prev, percentage: prev.percentage + 5, estimatedTime: 'En cours...' };
+      });
+    }, 600);
 
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      // Appel réel à l'API — retourne un Blob (fichier CSV ou Excel)
+      const blob = await ImportExportService.exportComplete(format);
+
       clearInterval(interval);
 
-      setExportProgress(prev => ({
-        ...prev,
+      setExportProgress({
         percentage: 100,
-        loaded: 1024000,
-        speed: '50 KB/s',
+        loaded: blob.size,
+        total: blob.size,
+        speed: '—',
         estimatedTime: 'Terminé'
-      }));
+      });
 
-      setTimeout(() => {
-        setShowProgressModal(false);
-        alert(`Export ${format.toUpperCase()} réussi !`);
-      }, 1000);
+      // Déclencher le téléchargement dans le navigateur
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().split('T')[0];
+      a.download = `export-cartes-${timestamp}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
 
-    } catch (error) {
+      setTimeout(() => setShowProgressModal(false), 1000);
+
+    } catch (error: any) {
+      clearInterval(interval);
       console.error('Erreur export:', error);
       setShowProgressModal(false);
+      const msg = error.response?.data?.message || error.response?.data?.erreur || error.message || "Erreur lors de l'export";
+      alert(`❌ ${msg}`);
     } finally {
       setExportLoading(false);
     }
@@ -910,5 +942,6 @@ COORDINATION SUD,YAMOUSSOUKRO,SECONDAIRE,B-02,TRAORE,AMINA,BOUAKE,1995-05-15,NON
     </div>
   );
 };
+
 
 export default Inventaire;

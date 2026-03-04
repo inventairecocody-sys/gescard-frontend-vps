@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../Services/api/client";
-import { 
-  DocumentArrowUpIcon, 
+import {
+  DocumentArrowUpIcon,
   DocumentTextIcon,
   TableCellsIcon,
   XMarkIcon,
@@ -177,7 +177,9 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else {
-        const response = await api.get('/api/import-export/template', {
+        // ✅ BUG #2 CORRIGÉ : baseURL axios = '.../api', le chemin ne doit pas re-inclure '/api'
+        // L'ancien chemin '/api/import-export/template' produisait → /api/api/import-export/template (404)
+        const response = await api.get('/import-export/template', {
           responseType: 'blob'
         });
         
@@ -538,3 +540,4 @@ TRAORE,Amina,09876543,amina@email.com,2015-01-25,Abidjan,01234567`;
 };
 
 export default ImportModal;
+  
