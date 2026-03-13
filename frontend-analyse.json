@@ -1,0 +1,223 @@
+{
+  "metadata": {
+    "date": "2026-03-12T17:47:57.016Z",
+    "projet": "Cartes Frontend",
+    "totalFichiers": 45
+  },
+  "structure": {
+    "src\\App.tsx": {
+      "taille": 6186,
+      "lignes": 161
+    },
+    "src\\components\\Button.tsx": {
+      "taille": 5703,
+      "lignes": 136
+    },
+    "src\\components\\ChartCartes.tsx": {
+      "taille": 14913,
+      "lignes": 404
+    },
+    "src\\components\\CoordinationDropdown.tsx": {
+      "taille": 5911,
+      "lignes": 156
+    },
+    "src\\components\\Header.tsx": {
+      "taille": 7987,
+      "lignes": 235
+    },
+    "src\\components\\ImportModal.tsx": {
+      "taille": 19372,
+      "lignes": 360
+    },
+    "src\\components\\MotivationQuotes.tsx": {
+      "taille": 6389,
+      "lignes": 162
+    },
+    "src\\components\\Navbar.tsx": {
+      "taille": 23121,
+      "lignes": 455
+    },
+    "src\\components\\SearchBar.tsx": {
+      "taille": 6917,
+      "lignes": 216
+    },
+    "src\\components\\SiteDropdown.tsx": {
+      "taille": 14207,
+      "lignes": 375
+    },
+    "src\\components\\StatCard.tsx": {
+      "taille": 8437,
+      "lignes": 253
+    },
+    "src\\components\\TableCartesExcel.tsx": {
+      "taille": 18825,
+      "lignes": 378
+    },
+    "src\\components\\WelcomeCoordinationInfo.tsx": {
+      "taille": 6719,
+      "lignes": 187
+    },
+    "src\\config\\api.config.ts": {
+      "taille": 1029,
+      "lignes": 39
+    },
+    "src\\config\\roles.config.ts": {
+      "taille": 2256,
+      "lignes": 54
+    },
+    "src\\context\\AuthContext.tsx": {
+      "taille": 1228,
+      "lignes": 41
+    },
+    "src\\global.d.ts": {
+      "taille": 961,
+      "lignes": 42
+    },
+    "src\\hooks\\useApi.ts": {
+      "taille": 2056,
+      "lignes": 75
+    },
+    "src\\hooks\\useAuth.ts": {
+      "taille": 851,
+      "lignes": 30
+    },
+    "src\\hooks\\usePermissions.ts": {
+      "taille": 2721,
+      "lignes": 82
+    },
+    "src\\index.css": {
+      "taille": 12248,
+      "lignes": 465
+    },
+    "src\\main.tsx": {
+      "taille": 584,
+      "lignes": 24
+    },
+    "src\\pages\\Accueil.tsx": {
+      "taille": 19733,
+      "lignes": 424
+    },
+    "src\\pages\\administration\\Comptes.tsx": {
+      "taille": 92409,
+      "lignes": 1753
+    },
+    "src\\pages\\administration\\MisesAjour.tsx": {
+      "taille": 41475,
+      "lignes": 816
+    },
+    "src\\pages\\Journal.tsx": {
+      "taille": 33138,
+      "lignes": 579
+    },
+    "src\\pages\\Login.tsx": {
+      "taille": 25907,
+      "lignes": 469
+    },
+    "src\\pages\\Profil.tsx": {
+      "taille": 27302,
+      "lignes": 607
+    },
+    "src\\pages\\Recherche.tsx": {
+      "taille": 25876,
+      "lignes": 489
+    },
+    "src\\pages\\TableauDeBord.tsx": {
+      "taille": 51703,
+      "lignes": 970
+    },
+    "src\\providers\\AuthProvider.tsx": {
+      "taille": 2797,
+      "lignes": 101
+    },
+    "src\\Services\\api\\auth.ts": {
+      "taille": 2904,
+      "lignes": 98
+    },
+    "src\\Services\\api\\cartes.ts": {
+      "taille": 1319,
+      "lignes": 44
+    },
+    "src\\Services\\api\\client.ts": {
+      "taille": 3921,
+      "lignes": 121
+    },
+    "src\\Services\\api\\import-export.ts": {
+      "taille": 3735,
+      "lignes": 127
+    },
+    "src\\Services\\api\\journal.ts": {
+      "taille": 590,
+      "lignes": 14
+    },
+    "src\\Services\\api\\profil.ts": {
+      "taille": 2456,
+      "lignes": 96
+    },
+    "src\\Services\\api\\statistiques.ts": {
+      "taille": 2748,
+      "lignes": 87
+    },
+    "src\\Services\\api\\utilisateurs.ts": {
+      "taille": 2992,
+      "lignes": 103
+    },
+    "src\\Services\\index.ts": {
+      "taille": 267,
+      "lignes": 8
+    },
+    "src\\Services\\interceptors\\request.ts": {
+      "taille": 369,
+      "lignes": 14
+    },
+    "src\\Services\\interceptors\\response.ts": {
+      "taille": 1904,
+      "lignes": 61
+    },
+    "src\\Services\\storage\\token.ts": {
+      "taille": 953,
+      "lignes": 47
+    },
+    "src\\types\\index.ts": {
+      "taille": 7084,
+      "lignes": 311
+    },
+    "src\\vite-env.d.ts": {
+      "taille": 1050,
+      "lignes": 52
+    }
+  },
+  "composants": [
+    "src\\App.tsx",
+    "src\\components\\Button.tsx",
+    "src\\components\\ChartCartes.tsx",
+    "src\\components\\CoordinationDropdown.tsx",
+    "src\\components\\Header.tsx",
+    "src\\components\\ImportModal.tsx",
+    "src\\components\\MotivationQuotes.tsx",
+    "src\\components\\Navbar.tsx",
+    "src\\components\\SearchBar.tsx",
+    "src\\components\\SiteDropdown.tsx",
+    "src\\components\\StatCard.tsx",
+    "src\\components\\TableCartesExcel.tsx",
+    "src\\components\\WelcomeCoordinationInfo.tsx",
+    "src\\config\\api.config.ts",
+    "src\\context\\AuthContext.tsx",
+    "src\\hooks\\useApi.ts",
+    "src\\hooks\\useAuth.ts",
+    "src\\hooks\\usePermissions.ts",
+    "src\\pages\\Accueil.tsx",
+    "src\\pages\\administration\\Comptes.tsx",
+    "src\\pages\\administration\\MisesAjour.tsx",
+    "src\\pages\\Journal.tsx",
+    "src\\pages\\Login.tsx",
+    "src\\pages\\Profil.tsx",
+    "src\\pages\\Recherche.tsx",
+    "src\\pages\\TableauDeBord.tsx",
+    "src\\providers\\AuthProvider.tsx",
+    "src\\Services\\api\\client.ts",
+    "src\\Services\\api\\import-export.ts",
+    "src\\Services\\interceptors\\request.ts",
+    "src\\Services\\interceptors\\response.ts",
+    "src\\types\\index.ts"
+  ]
+}

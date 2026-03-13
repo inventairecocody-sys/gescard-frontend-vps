@@ -1,21 +1,19 @@
+// src/pages/Journal.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import Navbar from "../components/Navbar";
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ClockIcon, DocumentTextIcon, ArrowPathIcon, FunnelIcon,
+  ArchiveBoxIcon, ChevronDownIcon,
+  ChevronUpIcon, MagnifyingGlassIcon, XMarkIcon,
+  CheckCircleIcon, PencilIcon, TrashIcon, ArrowRightOnRectangleIcon,
+  ArrowLeftOnRectangleIcon, InboxArrowDownIcon, ArrowUpTrayIcon,
+  ExclamationTriangleIcon, InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { JournalService } from '../Services/api/journal';
-import { 
-  ClockIcon, 
-  DocumentTextIcon,
-  ArrowPathIcon,
-  FunnelIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ArchiveBoxIcon,
-  ArrowDownTrayIcon,
-  ShieldExclamationIcon
-} from '@heroicons/react/24/outline';
 
+// ─── Types ────────────────────────────────────────────────────
 interface JournalEntry {
   id: number;
   type: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'IMPORT' | 'EXPORT';
@@ -33,109 +31,106 @@ interface JournalEntry {
 }
 
 interface PaginationInfo {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
+  page: number; limit: number; total: number; totalPages: number;
 }
 
 interface ImportBatch {
-  id: string;
-  nombreCartes: number;
-  dateImport: string;
-  utilisateurNom: string;
-  utilisateurComplet: string;
-  coordination: string;
+  id: string; nombreCartes: number; dateImport: string;
+  utilisateurNom: string; utilisateurComplet: string; coordination: string;
 }
 
-interface BackupFile {
-  id: string;
-  name: string;
-  created: string;
-  size: string;
-  type: 'SQL' | 'JSON';
-  encrypted: boolean;
-}
+// ─── Config types ─────────────────────────────────────────────
+const TYPE_CONFIG: Record<string, {
+  label: string; bg: string; text: string; border: string; icon: React.ReactNode;
+}> = {
+  CREATE:  { label: 'Création',      bg: 'bg-green-50',   text: 'text-green-700',  border: 'border-green-200',  icon: <CheckCircleIcon         className="w-3.5 h-3.5" /> },
+  UPDATE:  { label: 'Modification',  bg: 'bg-orange-50',  text: 'text-orange-700', border: 'border-orange-200', icon: <PencilIcon              className="w-3.5 h-3.5" /> },
+  DELETE:  { label: 'Suppression',   bg: 'bg-red-50',     text: 'text-red-700',    border: 'border-red-200',    icon: <TrashIcon               className="w-3.5 h-3.5" /> },
+  LOGIN:   { label: 'Connexion',     bg: 'bg-blue-50',    text: 'text-blue-700',   border: 'border-blue-200',   icon: <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" /> },
+  LOGOUT:  { label: 'Déconnexion',   bg: 'bg-gray-50',    text: 'text-gray-700',   border: 'border-gray-200',   icon: <ArrowLeftOnRectangleIcon className="w-3.5 h-3.5" /> },
+  IMPORT:  { label: 'Import',        bg: 'bg-purple-50',  text: 'text-purple-700', border: 'border-purple-200', icon: <InboxArrowDownIcon      className="w-3.5 h-3.5" /> },
+  EXPORT:  { label: 'Export',        bg: 'bg-indigo-50',  text: 'text-indigo-700', border: 'border-indigo-200', icon: <ArrowUpTrayIcon         className="w-3.5 h-3.5" /> },
+};
 
+const DOT_COLOR: Record<string, string> = {
+  CREATE: 'bg-green-500', UPDATE: 'bg-orange-500', DELETE: 'bg-red-500',
+  LOGIN:  'bg-blue-500',  LOGOUT: 'bg-gray-400',   IMPORT: 'bg-purple-500', EXPORT: 'bg-indigo-500',
+};
+
+// ─── Utilitaires ──────────────────────────────────────────────
+const fmtDate = (d: string) => {
+  try { return new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  catch { return d; }
+};
+
+const fmtJson = (v: any) => {
+  if (!v) return 'Aucune';
+  try { return JSON.stringify(typeof v === 'string' ? JSON.parse(v) : v, null, 2); }
+  catch { return String(v); }
+};
+
+// ─── Composants ───────────────────────────────────────────────
+const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const c = TYPE_CONFIG[type] || { label: type, bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: null };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
+      {c.icon}{c.label}
+    </span>
+  );
+};
+
+const TabBtn: React.FC<{
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string; count?: number;
+}> = ({ active, onClick, icon, label, count }) => (
+  <button onClick={onClick}
+    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+      active
+        ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white shadow-md'
+        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+    }`}>
+    {icon}
+    {label}
+    {count !== undefined && (
+      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+        {count}
+      </span>
+    )}
+  </button>
+);
+
+// ─── Page principale ──────────────────────────────────────────
 const Journal: React.FC = () => {
   const { user, hasRole } = useAuth();
   const { canAnnuler } = usePermissions();
-  
-  const isAdmin = hasRole(['Administrateur']);
+
+  const isAdmin       = hasRole(['Administrateur']);
   const isGestionnaire = hasRole(['Gestionnaire']);
-  
-  const [logs, setLogs] = useState<JournalEntry[]>([]);
+
+  const [logs,    setLogs]    = useState<JournalEntry[]>([]);
   const [imports, setImports] = useState<ImportBatch[]>([]);
-  const [backups, setBackups] = useState<BackupFile[]>([]);
-  
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 50,
-    total: 0,
-    totalPages: 0
-  });
-  
-  const [filters, setFilters] = useState({
-    dateDebut: '',
-    dateFin: '',
-    utilisateur: '',
-    type: '',
-    coordination: user?.coordination || ''
-  });
-  
-  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState<PaginationInfo>({ page: 1, limit: 50, total: 0, totalPages: 0 });
+
+  const [loading,        setLoading]        = useState(false);
   const [importsLoading, setImportsLoading] = useState(false);
-  const [backupsLoading, setBackupsLoading] = useState(false);
-  
-  const [selectedImport, setSelectedImport] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'journal' | 'imports' | 'backup'>('journal');
-  
-  const [showFilters, setShowFilters] = useState(false);
+  const [activeTab,      setActiveTab]      = useState<'journal' | 'imports'>('journal');
+  const [showFilters,    setShowFilters]    = useState(false);
+  const [expandedRow,    setExpandedRow]    = useState<number | null>(null);
 
-  // Responsive
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  const [filters, setFilters] = useState({
+    dateDebut: '', dateFin: '', utilisateur: '', type: '',
+    coordination: user?.coordination || '',
+  });
 
-  useEffect(() => {
-    const checkScreen = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 640);
-      setIsTablet(width >= 640 && width < 1024);
-    };
-    checkScreen();
-    window.addEventListener('resize', checkScreen);
-    return () => window.removeEventListener('resize', checkScreen);
-  }, []);
-
-  // Classes responsives
-  const containerClass = isMobile ? 'px-3 py-4' : isTablet ? 'px-6 py-6' : 'container mx-auto px-4 py-8';
-  const titleSize = isMobile ? 'text-lg' : isTablet ? 'text-xl' : 'text-2xl';
-  const textSize = isMobile ? 'text-xs' : isTablet ? 'text-sm' : 'text-base';
-  const tableCellClass = isMobile ? 'px-2 py-2 text-xs' : isTablet ? 'px-3 py-3 text-sm' : 'px-4 py-3';
-
-  const fetchLogs = useCallback(async (page: number = 1) => {
+  // ── Fetch logs ─────────────────────────────────────────────
+  const fetchLogs = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const params: any = {
-        page,
-        limit: pagination.limit,
-        ...filters
-      };
-      
-      // Filtrer par coordination pour les gestionnaires
-      if (isGestionnaire && user?.coordination) {
-        params.coordination = user.coordination;
-      }
-      
+      const params: any = { page, limit: pagination.limit, ...filters };
+      if (isGestionnaire && user?.coordination) params.coordination = user.coordination;
       const response = await JournalService.getActions(params);
-      
       setLogs(response.data);
       setPagination(response.pagination);
-      
-    } catch (error: any) {
-      console.error('Erreur chargement journal:', error);
+    } catch {
       setLogs([]);
     } finally {
       setLoading(false);
@@ -145,701 +140,438 @@ const Journal: React.FC = () => {
   const fetchImports = useCallback(async () => {
     setImportsLoading(true);
     try {
-      // Simulation - à remplacer par un vrai service
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setImports([]);
-    } catch (error) {
-      console.error('Erreur chargement imports:', error);
+      await new Promise(r => setTimeout(r, 800));
       setImports([]);
     } finally {
       setImportsLoading(false);
     }
   }, []);
 
-  const fetchBackups = useCallback(async () => {
-    setBackupsLoading(true);
-    try {
-      // Simulation - à remplacer par un vrai service
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setBackups([]);
-    } catch (error) {
-      console.error('Erreur chargement backups:', error);
-      setBackups([]);
-    } finally {
-      setBackupsLoading(false);
-    }
-  }, []);
-
-  const handleAnnulerImport = async () => {
-    if (!selectedImport) return;
-    
-    try {
-      await JournalService.annulerAction(parseInt(selectedImport));
-      setDialogOpen(false);
-      setSelectedImport(null);
-      fetchLogs();
-      fetchImports();
-    } catch (error) {
-      console.error('Erreur annulation:', error);
-    }
-  };
-
-  const handleUndo = async (journalId: number) => {
-    if (!window.confirm("Voulez-vous vraiment annuler cette action ?")) return;
-    
-    try {
-      await JournalService.annulerAction(journalId);
-      fetchLogs();
-    } catch (error) {
-      console.error("Erreur annulation:", error);
-    }
-  };
-
   useEffect(() => {
-    if (activeTab === 'journal') {
-      fetchLogs();
-    } else if (activeTab === 'imports') {
-      fetchImports();
-    } else if (activeTab === 'backup') {
-      fetchBackups();
-    }
-  }, [activeTab, filters, fetchLogs, fetchImports, fetchBackups]);
+    if (activeTab === 'journal') fetchLogs();
+    else fetchImports();
+  }, [activeTab, fetchLogs, fetchImports]);
 
-  const getActionColor = (type: string) => {
-    const colors: Record<string, string> = {
-      'CREATE': 'bg-green-500',
-      'UPDATE': 'bg-orange-500',
-      'DELETE': 'bg-red-500',
-      'LOGIN': 'bg-blue-500',
-      'LOGOUT': 'bg-gray-500',
-      'IMPORT': 'bg-purple-500',
-      'EXPORT': 'bg-indigo-500'
-    };
-    return colors[type] || 'bg-gray-500';
-  };
-
-  const getActionIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      'CREATE': '➕',
-      'UPDATE': '✏️',
-      'DELETE': '🗑️',
-      'LOGIN': '🔐',
-      'LOGOUT': '🚪',
-      'IMPORT': '📥',
-      'EXPORT': '📤'
-    };
-    return icons[type] || '📝';
-  };
-
-  const formatDate = (dateString: string) => {
+  const handleUndo = async (id: number) => {
+    if (!window.confirm('Voulez-vous vraiment annuler cette action ?')) return;
     try {
-      return new Date(dateString).toLocaleString('fr-FR');
-    } catch {
-      return dateString || 'Date inconnue';
-    }
+      await JournalService.annulerAction(id);
+      fetchLogs(pagination.page);
+    } catch { /* silencieux */ }
   };
 
-  const handleFilterChange = (field: string, value: string) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
-  };
+  const resetFilters = () => setFilters({
+    dateDebut: '', dateFin: '', utilisateur: '', type: '',
+    coordination: user?.coordination || '',
+  });
 
-  const handleResetFilters = () => {
-    setFilters({
-      dateDebut: '',
-      dateFin: '',
-      utilisateur: '',
-      type: '',
-      coordination: user?.coordination || ''
-    });
-  };
+  const hasActiveFilters = filters.dateDebut || filters.dateFin || filters.utilisateur || filters.type;
 
-  const formatJsonValue = (value: any) => {
-    if (!value) return 'Aucune';
-    try {
-      if (typeof value === 'string') {
-        const parsed = JSON.parse(value);
-        return JSON.stringify(parsed, null, 2);
-      }
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      'CREATE': 'Création',
-      'UPDATE': 'Modification',
-      'DELETE': 'Suppression',
-      'LOGIN': 'Connexion',
-      'LOGOUT': 'Déconnexion',
-      'IMPORT': 'Import',
-      'EXPORT': 'Export'
-    };
-    return labels[type] || type;
-  };
-
+  // ── Render ─────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <Navbar />
-      
-      {/* En-tête */}
-      <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white py-4 shadow-lg">
-        <div className={containerClass}>
-          <h1 className={`${titleSize} font-bold`}>
-            Journal d'Activité
-          </h1>
-          <p className={`text-white/90 mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-            {isAdmin ? 'Administration complète' : 'Consultation des actions'}
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
-      <div className={containerClass}>
-        {/* Tabs */}
-        <div className={`flex flex-wrap gap-2 mb-6 ${isMobile ? 'justify-center' : ''}`}>
-          <motion.button
-            onClick={() => setActiveTab('journal')}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`px-4 py-2 md:px-6 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${textSize} ${
-              activeTab === 'journal'
-                ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            <DocumentTextIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
-            Journal
-          </motion.button>
-          
+        {/* ── En-tête ── */}
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Journal d'activité</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {isAdmin ? 'Toutes les actions' : 'Actions de votre coordination'} •{' '}
+              <span className="text-[#F77F00] font-semibold">{pagination.total} entrée(s)</span>
+            </p>
+          </div>
+          <button
+            onClick={() => activeTab === 'journal' ? fetchLogs(pagination.page) : fetchImports()}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 shadow-sm transition-all disabled:opacity-50 self-start sm:self-auto">
+            <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
+        </motion.div>
+
+        {/* ── Tabs ── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <TabBtn active={activeTab === 'journal'} onClick={() => setActiveTab('journal')}
+            icon={<DocumentTextIcon className="w-4 h-4" />} label="Journal" count={pagination.total} />
           {isAdmin && (
-            <>
-              <motion.button
-                onClick={() => setActiveTab('imports')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${textSize} ${
-                  activeTab === 'imports'
-                    ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <ArchiveBoxIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
-                Imports
-              </motion.button>
-              
-              <motion.button
-                onClick={() => setActiveTab('backup')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${textSize} ${
-                  activeTab === 'backup'
-                    ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <ArrowDownTrayIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
-                Sauvegardes
-              </motion.button>
-            </>
+            <TabBtn active={activeTab === 'imports'} onClick={() => setActiveTab('imports')}
+              icon={<ArchiveBoxIcon className="w-4 h-4" />} label="Imports" count={imports.length} />
           )}
         </div>
 
-        {/* Bouton actualiser */}
-        <div className="mb-6">
-          <motion.button
-            onClick={() => {
-              if (activeTab === 'journal') fetchLogs();
-              else if (activeTab === 'imports') fetchImports();
-              else if (activeTab === 'backup') fetchBackups();
-            }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center gap-2 font-semibold shadow-lg"
-          >
-            <ArrowPathIcon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
-            Actualiser
-          </motion.button>
-        </div>
-
-        {/* Vue Journal */}
+        {/* ── Tab Journal ── */}
         {activeTab === 'journal' && (
-          <>
-            {/* Bouton filtres */}
-            <motion.button
-              onClick={() => setShowFilters(!showFilters)}
-              className="mb-4 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
-            >
-              <FunnelIcon className="w-5 h-5 text-gray-600" />
-              <span>Filtres</span>
-              {showFilters ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
-            </motion.button>
+          <div className="space-y-4">
 
-            {/* Filtres */}
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 p-4 md:p-6 mb-6"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Date début */}
-                  <div>
-                    <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Date début
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dateDebut}
-                      onChange={(e) => handleFilterChange('dateDebut', e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                    />
-                  </div>
-                  
-                  {/* Date fin */}
-                  <div>
-                    <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Date fin
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dateFin}
-                      onChange={(e) => handleFilterChange('dateFin', e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                    />
-                  </div>
-                  
-                  {/* Utilisateur */}
-                  <div>
-                    <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Utilisateur
-                    </label>
-                    <input
-                      type="text"
-                      value={filters.utilisateur}
-                      onChange={(e) => handleFilterChange('utilisateur', e.target.value)}
-                      placeholder="Nom..."
-                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                    />
-                  </div>
-                  
-                  {/* Type d'action */}
-                  <div>
-                    <label className={`block font-medium text-gray-700 mb-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Type d'action
-                    </label>
-                    <select
-                      value={filters.type}
-                      onChange={(e) => handleFilterChange('type', e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 ${isMobile ? 'text-xs' : 'text-sm'}`}
-                    >
-                      <option value="">Tous</option>
-                      <option value="CREATE">Création</option>
-                      <option value="UPDATE">Modification</option>
-                      <option value="DELETE">Suppression</option>
-                      <option value="LOGIN">Connexion</option>
-                      <option value="LOGOUT">Déconnexion</option>
-                      <option value="IMPORT">Import</option>
-                      <option value="EXPORT">Export</option>
-                    </select>
-                  </div>
+            {/* Barre filtres */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                {/* Recherche rapide */}
+                <div className="flex-1 min-w-[200px] relative">
+                  <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input type="text" value={filters.utilisateur}
+                    onChange={e => setFilters(f => ({ ...f, utilisateur: e.target.value }))}
+                    placeholder="Rechercher un utilisateur…"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F77F00]/30 focus:border-[#F77F00]" />
                 </div>
-                
-                <div className="flex justify-end gap-3 mt-4">
-                  <motion.button
-                    onClick={handleResetFilters}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
-                  >
-                    Réinitialiser
-                  </motion.button>
-                  
-                  <motion.button
-                    onClick={() => fetchLogs(1)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 font-semibold"
-                  >
-                    Appliquer
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
 
-            {/* Tableau des logs */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 overflow-hidden"
-            >
-              {/* Info pagination */}
-              <div className="px-4 md:px-6 py-3 bg-gradient-to-r from-blue-50 to-white border-b border-gray-200">
-                <div className={`flex justify-between items-center ${textSize}`}>
-                  <span>
-                    {logs.length} entrées sur {pagination.total}
-                  </span>
-                  <span>
-                    Page {pagination.page} / {pagination.totalPages}
-                  </span>
-                </div>
+                {/* Filtre type */}
+                <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
+                  className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F77F00]/30 focus:border-[#F77F00]">
+                  <option value="">Tous les types</option>
+                  {Object.entries(TYPE_CONFIG).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
+                </select>
+
+                {/* Bouton filtres avancés */}
+                <button onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                    showFilters || hasActiveFilters
+                      ? 'bg-orange-50 border-orange-300 text-[#F77F00]'
+                      : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <FunnelIcon className="w-4 h-4" />
+                  Filtres {hasActiveFilters && <span className="w-2 h-2 bg-[#F77F00] rounded-full" />}
+                  {showFilters ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* Appliquer */}
+                <button onClick={() => fetchLogs(1)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white text-sm font-semibold rounded-xl shadow hover:shadow-md transition-all">
+                  Appliquer
+                </button>
+              </div>
+
+              {/* Filtres avancés */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <div className="border-t border-gray-100 mt-4 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">Date début</label>
+                        <input type="date" value={filters.dateDebut}
+                          onChange={e => setFilters(f => ({ ...f, dateDebut: e.target.value }))}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F77F00]/30 focus:border-[#F77F00]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">Date fin</label>
+                        <input type="date" value={filters.dateFin}
+                          onChange={e => setFilters(f => ({ ...f, dateFin: e.target.value }))}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F77F00]/30 focus:border-[#F77F00]" />
+                      </div>
+                      <div className="flex items-end">
+                        <button onClick={() => { resetFilters(); fetchLogs(1); }}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all">
+                          <XMarkIcon className="w-4 h-4" /> Réinitialiser
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Tableau */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+              {/* Barre info */}
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <span className="text-xs text-gray-500 font-medium">
+                  {logs.length} entrée(s) affichée(s) sur {pagination.total}
+                </span>
+                <span className="text-xs text-gray-400">
+                  Page {pagination.page} / {Math.max(1, pagination.totalPages)}
+                </span>
               </div>
 
               {loading ? (
-                <div className="flex justify-center items-center py-12 md:py-20">
-                  <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className={`ml-3 text-gray-600 ${textSize}`}>Chargement...</span>
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <ArrowPathIcon className="w-8 h-8 text-[#F77F00] animate-spin" />
+                  <p className="text-gray-500 text-sm">Chargement du journal…</p>
                 </div>
               ) : logs.length === 0 ? (
-                <div className="text-center py-12 md:py-16 text-gray-500">
-                  <div className="text-3xl md:text-4xl mb-2 md:mb-3">📭</div>
-                  <p className={`font-medium ${textSize}`}>Aucune activité trouvée</p>
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <DocumentTextIcon className="w-12 h-12 text-gray-200" />
+                  <p className="text-gray-500 font-medium">Aucune activité trouvée</p>
+                  <p className="text-gray-400 text-sm">Modifiez vos filtres ou revenez plus tard</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 border-b border-gray-200">
-                        <th className={`${tableCellClass} text-left font-semibold`}>Date/Heure</th>
-                        <th className={`${tableCellClass} text-left font-semibold`}>Utilisateur</th>
-                        <th className={`${tableCellClass} text-left font-semibold`}>Action</th>
-                        <th className={`${tableCellClass} text-left font-semibold`}>Description</th>
-                        {isAdmin && <th className={`${tableCellClass} text-left font-semibold`}>Actions</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.map((log) => (
-                        <React.Fragment key={log.id}>
-                          <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                            expandedRow === log.id ? 'bg-blue-50' : ''
-                          }`}>
-                            <td className={tableCellClass}>
-                              <div className="flex items-center gap-1">
-                                <ClockIcon className="w-3 h-3 md:w-4 md:h-4 text-gray-400" />
-                                <span>{formatDate(log.dateAction)}</span>
-                              </div>
-                            </td>
-                            <td className={tableCellClass}>
-                              <div className="font-medium">{log.utilisateurNom}</div>
-                              <div className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-xs'}`}>
-                                {log.role} • {log.coordination}
-                              </div>
-                            </td>
-                            <td className={tableCellClass}>
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${getActionColor(log.type)}`}></span>
-                                <span>
-                                  {getActionIcon(log.type)} {getTypeLabel(log.type)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className={tableCellClass}>
-                              <div className="truncate max-w-[150px] md:max-w-xs" title={log.description}>
-                                {log.description}
-                              </div>
-                            </td>
-                            {isAdmin && (
-                              <td className={tableCellClass}>
-                                <div className="flex gap-1 md:gap-2">
-                                  <motion.button
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white">
+                          {['Date / Heure', 'Utilisateur', 'Type', 'Description', 'Actions'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.map((log, i) => (
+                          <React.Fragment key={log.id}>
+                            <motion.tr
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                              transition={{ delay: i * 0.02 }}
+                              className={`border-b border-gray-50 transition-colors cursor-pointer ${
+                                expandedRow === log.id ? 'bg-orange-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                              } hover:bg-orange-50/30`}
+                              onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
+                            >
+                              {/* Date */}
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 text-gray-600">
+                                  <ClockIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                  <span className="text-xs">{fmtDate(log.dateAction)}</span>
+                                </div>
+                              </td>
+                              {/* Utilisateur */}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 bg-gradient-to-br from-[#F77F00] to-[#FF9E40] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {(log.utilisateurNom || log.utilisateurId?.toString() || "?").charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-gray-800 text-sm">{log.utilisateurNom || `Utilisateur #${log.utilisateurId}`}</div>
+                                    <div className="text-xs text-gray-400">{log.role || "—"} · {log.coordination || "—"}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Type */}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${DOT_COLOR[log.type] || 'bg-gray-400'}`} />
+                                  <TypeBadge type={log.type} />
+                                </div>
+                              </td>
+                              {/* Description */}
+                              <td className="px-4 py-3 max-w-[300px]">
+                                <p className="text-sm text-gray-600 truncate" title={log.description}>{log.description}</p>
+                                {log.annulee && (
+                                  <span className="text-xs text-red-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <ExclamationTriangleIcon className="w-3 h-3" /> Annulée
+                                  </span>
+                                )}
+                              </td>
+                              {/* Actions */}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                                  <button
                                     onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="px-2 py-1 md:px-3 md:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-xs"
-                                  >
-                                    Détails
-                                  </motion.button>
-                                  {canAnnuler() && !log.annulee && (
-                                    <motion.button
-                                      onClick={() => handleUndo(log.id)}
-                                      whileHover={{ scale: 1.05 }}
-                                      whileTap={{ scale: 0.95 }}
-                                      className="px-2 py-1 md:px-3 md:py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all text-xs"
-                                    >
-                                      Annuler
-                                    </motion.button>
+                                    className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="Voir les détails">
+                                    <InformationCircleIcon className="w-4 h-4" />
+                                  </button>
+                                  {isAdmin && canAnnuler() && !log.annulee && ['CREATE', 'UPDATE', 'DELETE', 'IMPORT'].includes(log.type) && (
+                                    <button onClick={() => handleUndo(log.id)}
+                                      className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                                      title="Annuler cette action">
+                                      <ArrowPathIcon className="w-4 h-4" />
+                                    </button>
                                   )}
                                 </div>
                               </td>
-                            )}
-                          </tr>
-                          
-                          {/* Ligne détaillée */}
-                          {expandedRow === log.id && (
-                            <tr className="bg-blue-50 border-b border-blue-100">
-                              <td colSpan={isAdmin ? 5 : 4} className="px-4 py-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <h4 className="font-bold text-gray-700 mb-2 text-sm">Informations</h4>
-                                    <div className="space-y-1 text-xs">
-                                      <div><span className="font-medium">ID:</span> {log.id}</div>
-                                      <div><span className="font-medium">Carte ID:</span> {log.carteId || 'N/A'}</div>
-                                      <div><span className="font-medium">IP:</span> {log.ipAddress || 'Inconnue'}</div>
-                                      <div><span className="font-medium">Annulée:</span> {log.annulee ? 'Oui' : 'Non'}</div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-bold text-gray-700 mb-2 text-sm">Valeurs modifiées</h4>
-                                    <div className="space-y-2 text-xs">
-                                      <div>
-                                        <span className="font-medium">Ancienne:</span>
-                                        <pre className="mt-1 p-2 bg-gray-100 rounded overflow-x-auto max-h-32">
-                                          {formatJsonValue(log.ancienneValeur)}
-                                        </pre>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">Nouvelle:</span>
-                                        <pre className="mt-1 p-2 bg-gray-100 rounded overflow-x-auto max-h-32">
-                                          {formatJsonValue(log.nouvelleValeur)}
-                                        </pre>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                            </motion.tr>
 
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="px-4 md:px-6 py-3 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
-                  <div className={`flex justify-between items-center ${textSize}`}>
-                    <span>{pagination.total} total</span>
-                    
-                    <div className="flex gap-1 md:gap-2">
-                      <motion.button
-                        onClick={() => fetchLogs(pagination.page - 1)}
-                        disabled={pagination.page <= 1}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-2 py-1 md:px-3 md:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-all text-xs"
-                      >
-                        Précédent
-                      </motion.button>
-                      
-                      <span className="px-2 py-1 md:px-3 md:py-2 bg-orange-500 text-white rounded-lg text-xs">
-                        {pagination.page}
-                      </span>
-                      
-                      <motion.button
-                        onClick={() => fetchLogs(pagination.page + 1)}
-                        disabled={pagination.page >= pagination.totalPages}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-2 py-1 md:px-3 md:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-all text-xs"
-                      >
-                        Suivant
-                      </motion.button>
-                    </div>
+                            {/* Ligne détail expandée */}
+                            <AnimatePresence>
+                              {expandedRow === log.id && (
+                                <tr>
+                                  <td colSpan={5} className="p-0">
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="overflow-hidden bg-blue-50/50 border-b border-blue-100"
+                                    >
+                                      <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {/* Infos générales */}
+                                        <div className="bg-white rounded-xl border border-gray-200 p-4">
+                                          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Informations</h4>
+                                          <div className="space-y-2 text-xs">
+                                            {[
+                                              { label: 'ID action', value: log.id },
+                                              { label: 'Carte ID',  value: log.carteId || '—' },
+                                              { label: 'IP',        value: log.ipAddress || 'Inconnue' },
+                                              { label: 'Annulée',   value: log.annulee ? 'Oui' : 'Non' },
+                                            ].map(item => (
+                                              <div key={item.label} className="flex justify-between">
+                                                <span className="text-gray-400 font-medium">{item.label}</span>
+                                                <span className="text-gray-700 font-semibold">{item.value}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        {/* Ancienne valeur */}
+                                        <div className="bg-white rounded-xl border border-red-100 p-4">
+                                          <h4 className="text-xs font-bold text-red-400 uppercase tracking-wide mb-3">Avant</h4>
+                                          <pre className="text-xs text-gray-600 overflow-auto max-h-32 leading-relaxed">
+                                            {fmtJson(log.ancienneValeur)}
+                                          </pre>
+                                        </div>
+                                        {/* Nouvelle valeur */}
+                                        <div className="bg-white rounded-xl border border-green-100 p-4">
+                                          <h4 className="text-xs font-bold text-green-500 uppercase tracking-wide mb-3">Après</h4>
+                                          <pre className="text-xs text-gray-600 overflow-auto max-h-32 leading-relaxed">
+                                            {fmtJson(log.nouvelleValeur)}
+                                          </pre>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  </td>
+                                </tr>
+                              )}
+                            </AnimatePresence>
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+
+                  {/* Mobile cards */}
+                  <div className="md:hidden divide-y divide-gray-100">
+                    {logs.map((log, i) => (
+                      <motion.div key={log.id}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                        className="p-4 hover:bg-orange-50/20 transition-colors"
+                        onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#F77F00] to-[#FF9E40] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {(log.utilisateurNom || log.utilisateurId?.toString() || "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-gray-800 text-sm">{log.utilisateurNom || `Utilisateur #${log.utilisateurId}`}</div>
+                              <div className="text-xs text-gray-400">{fmtDate(log.dateAction)}</div>
+                            </div>
+                          </div>
+                          <TypeBadge type={log.type} />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 ml-10 line-clamp-2">{log.description}</p>
+
+                        {/* Détail mobile */}
+                        <AnimatePresence>
+                          {expandedRow === log.id && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="mt-3 ml-10 grid grid-cols-2 gap-2 overflow-hidden">
+                              <div className="bg-gray-50 rounded-lg p-2.5 text-xs">
+                                <div className="text-gray-400 font-medium mb-1">Carte ID</div>
+                                <div className="font-bold text-gray-700">{log.carteId || '—'}</div>
+                              </div>
+                              <div className="bg-gray-50 rounded-lg p-2.5 text-xs">
+                                <div className="text-gray-400 font-medium mb-1">IP</div>
+                                <div className="font-bold text-gray-700">{log.ipAddress || 'Inconnue'}</div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {pagination.totalPages > 1 && (
+                    <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+                      <span className="text-xs text-gray-500">{pagination.total} total</span>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => fetchLogs(pagination.page - 1)} disabled={pagination.page <= 1}
+                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition-all">
+                          Précédent
+                        </button>
+                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                          const p = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4)) + i;
+                          return (
+                            <button key={p} onClick={() => fetchLogs(p)}
+                              className={`w-8 h-8 text-xs rounded-lg font-medium transition-all ${
+                                p === pagination.page
+                                  ? 'bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white shadow-sm'
+                                  : 'border border-gray-200 hover:bg-gray-50 text-gray-600'
+                              }`}>
+                              {p}
+                            </button>
+                          );
+                        })}
+                        <button onClick={() => fetchLogs(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
+                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition-all">
+                          Suivant
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </motion.div>
-          </>
+            </div>
+          </div>
         )}
 
-        {/* Vue Imports (Admin uniquement) */}
+        {/* ── Tab Imports ── */}
         {activeTab === 'imports' && isAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 p-4 md:p-6"
-          >
-            <h2 className={`font-bold text-gray-800 mb-4 ${isMobile ? 'text-base' : 'text-xl'}`}>
-              Historique des imports
-            </h2>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-800">Historique des imports</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Tous les imports Excel effectués</p>
+            </div>
 
             {importsLoading ? (
-              <div className="flex justify-center items-center py-8 md:py-12">
-                <div className="w-6 h-6 md:w-8 md:h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className={`ml-3 text-gray-600 ${textSize}`}>Chargement...</span>
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <ArrowPathIcon className="w-8 h-8 text-[#F77F00] animate-spin" />
+                <p className="text-gray-500 text-sm">Chargement…</p>
               </div>
             ) : imports.length === 0 ? (
-              <div className="text-center py-8 md:py-12 text-gray-500">
-                <div className="text-3xl md:text-4xl mb-2">📭</div>
-                <p className={`font-medium ${textSize}`}>Aucun import trouvé</p>
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <ArchiveBoxIcon className="w-12 h-12 text-gray-200" />
+                <p className="text-gray-500 font-medium">Aucun import trouvé</p>
+                <p className="text-gray-400 text-sm">Les imports Excel apparaîtront ici</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                      <th className={tableCellClass}>Date</th>
-                      <th className={tableCellClass}>Utilisateur</th>
-                      <th className={tableCellClass}>Coordination</th>
-                      <th className={tableCellClass}>Cartes</th>
-                      <th className={tableCellClass}>Actions</th>
+                    <tr className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white">
+                      {['Date', 'Utilisateur', 'Coordination', 'Cartes importées', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {imports.map((imp) => (
-                      <tr key={imp.id} className="border-b border-gray-100 hover:bg-blue-50">
-                        <td className={tableCellClass}>{formatDate(imp.dateImport)}</td>
-                        <td className={tableCellClass}>
-                          <div className="font-medium">{imp.utilisateurComplet}</div>
-                          <div className="text-xs text-gray-500">@{imp.utilisateurNom}</div>
+                  <tbody className="divide-y divide-gray-50">
+                    {imports.map((imp, i) => (
+                      <motion.tr key={imp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="hover:bg-orange-50/20 transition-colors">
+                        <td className="px-4 py-3 text-xs text-gray-600">{fmtDate(imp.dateImport)}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-gray-800 text-sm">{imp.utilisateurComplet || imp.utilisateurNom}</div>
                         </td>
-                        <td className={tableCellClass}>{imp.coordination}</td>
-                        <td className={tableCellClass}>
-                          <span className="font-bold text-blue-600">{imp.nombreCartes}</span>
-                        </td>
-                        <td className={tableCellClass}>
-                          <motion.button
-                            onClick={() => {
-                              setSelectedImport(imp.id);
-                              setDialogOpen(true);
-                            }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="px-3 py-1 md:px-4 md:py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-xs"
-                          >
-                            Annuler
-                          </motion.button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {/* Vue Backup (Admin uniquement) */}
-        {activeTab === 'backup' && isAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 p-4 md:p-6"
-          >
-            <h2 className={`font-bold text-gray-800 mb-4 ${isMobile ? 'text-base' : 'text-xl'}`}>
-              Sauvegardes disponibles
-            </h2>
-
-            {backupsLoading ? (
-              <div className="flex justify-center items-center py-8 md:py-12">
-                <div className="w-6 h-6 md:w-8 md:h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className={`ml-3 text-gray-600 ${textSize}`}>Chargement...</span>
-              </div>
-            ) : backups.length === 0 ? (
-              <div className="text-center py-8 md:py-12 text-gray-500">
-                <div className="text-3xl md:text-4xl mb-2">📭</div>
-                <p className={`font-medium ${textSize}`}>Aucune sauvegarde disponible</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-                      <th className={tableCellClass}>Nom</th>
-                      <th className={tableCellClass}>Date</th>
-                      <th className={tableCellClass}>Type</th>
-                      <th className={tableCellClass}>Taille</th>
-                      <th className={tableCellClass}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {backups.map((backup) => (
-                      <tr key={backup.id} className="border-b border-gray-100 hover:bg-green-50">
-                        <td className={tableCellClass}>
-                          <div className="font-medium">{backup.name}</div>
-                          {backup.encrypted && (
-                            <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">
-                              Chiffré
-                            </span>
-                          )}
-                        </td>
-                        <td className={tableCellClass}>{backup.created}</td>
-                        <td className={tableCellClass}>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            backup.type === 'SQL' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                          }`}>
-                            {backup.type}
+                        <td className="px-4 py-3 text-xs text-gray-500">{imp.coordination}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-bold">
+                            <InboxArrowDownIcon className="w-3.5 h-3.5" />
+                            {imp.nombreCartes.toLocaleString('fr-FR')} cartes
                           </span>
                         </td>
-                        <td className={tableCellClass}>{backup.size}</td>
-                        <td className={tableCellClass}>
-                          <div className="flex gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-xs"
-                            >
-                              Télécharger
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all text-xs"
-                            >
-                              Restaurer
-                            </motion.button>
-                          </div>
+                        <td className="px-4 py-3">
+                          {canAnnuler() && (
+                            <button onClick={() => handleUndo(parseInt(imp.id))}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-600 border border-amber-200 bg-amber-50 rounded-xl hover:bg-amber-100 font-medium transition-all">
+                              <ArrowPathIcon className="w-3.5 h-3.5" /> Annuler
+                            </button>
+                          )}
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </motion.div>
+          </div>
         )}
       </div>
-
-      {/* Modal d'annulation */}
-      {dialogOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 max-w-md w-full mx-auto"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-xl flex items-center justify-center">
-                <ShieldExclamationIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <h3 className={`font-bold text-gray-800 ${isMobile ? 'text-base' : 'text-lg'}`}>
-                Confirmation d'annulation
-              </h3>
-            </div>
-            
-            <p className={`text-gray-600 mb-4 md:mb-6 ${textSize}`}>
-              Êtes-vous sûr de vouloir annuler cette importation ?
-              Cette action est irréversible.
-            </p>
-            
-            <div className="flex justify-end gap-2 md:gap-3">
-              <motion.button
-                onClick={() => setDialogOpen(false)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium text-sm"
-              >
-                Annuler
-              </motion.button>
-              <motion.button
-                onClick={handleAnnulerImport}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-medium text-sm shadow-lg"
-              >
-                Confirmer
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
     </div>
   );
 };

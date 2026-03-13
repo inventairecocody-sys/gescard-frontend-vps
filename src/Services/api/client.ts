@@ -2,16 +2,10 @@ import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { TokenService } from '../storage/token';
 import { toast } from 'react-hot-toast';
+import { API_CONFIG } from '../../config/api.config';
 
-// Configuration de l'API
-const API_CONFIG = {
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
-  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000'),
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
-};
+// ✅ Ré-export de BACKEND_URL pour que les autres fichiers puissent l'importer depuis client.ts
+export { BACKEND_URL } from '../../config/api.config';
 
 class ApiClient {
   private static instance: ApiClient;
@@ -60,11 +54,10 @@ class ApiClient {
         // Gestion 401 - Éviter la boucle infinie
         if (error.response?.status === 401) {
           const isLoginPage = window.location.pathname.includes('/login');
-          
+
           if (!isLoginPage) {
             TokenService.clear();
             toast.error('Session expirée. Veuillez vous reconnecter.');
-            
             setTimeout(() => {
               window.location.replace('/login');
             }, 100);
@@ -102,7 +95,7 @@ class ApiClient {
           console.error('❌ [API] Response Error:', {
             url: error.config?.url,
             status: error.response?.status,
-            message: error.message
+            message: error.message,
           });
         }
         return Promise.reject(error);

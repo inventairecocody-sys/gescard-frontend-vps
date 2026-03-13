@@ -1,0 +1,54 @@
+# ANALYSE FRONTEND - 12/03/2026 17:47:57
+
+## STRUCTURE DES DOSSIERS
+
+### assets/
+
+### components/
+  - Button.tsx
+  - ChartCartes.tsx
+  - CoordinationDropdown.tsx
+  - Header.tsx
+  - ImportModal.tsx
+  - MotivationQuotes.tsx
+  - Navbar.tsx
+  - SearchBar.tsx
+  - SiteDropdown.tsx
+  - StatCard.tsx
+  - TableCartesExcel.tsx
+  - WelcomeCoordinationInfo.tsx
+
+### config/
+  - api.config.ts
+  - roles.config.ts
+
+### context/
+  - AuthContext.tsx
+
+### hooks/
+  - useApi.ts
+  - useAuth.ts
+  - usePermissions.ts
+
+### pages/
+  - Accueil.tsx
+  - Journal.tsx
+  - Login.tsx
+  - Profil.tsx
+  - Recherche.tsx
+  - TableauDeBord.tsx
+
+### providers/
+  - AuthProvider.tsx
+
+### Services/
+  - index.ts
+
+### types/
+  - index.ts
+
+## STATISTIQUES
+
+- Total fichiers: 45
+- Fichiers TypeScript/React: 24
+- Fichiers TypeScript: 20

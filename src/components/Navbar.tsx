@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react";
+// src/components/Navbar.tsx
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from '../hooks/useAuth';
-import { usePermissions } from '../hooks/usePermissions';
-import { 
+import {
   HomeIcon,
   MagnifyingGlassIcon,
   ChartBarIcon,
   DocumentTextIcon,
-  UsersIcon,
   UserIcon,
   ArrowRightOnRectangleIcon,
   XMarkIcon,
@@ -16,28 +14,35 @@ import {
   ChevronDownIcon,
   BuildingOfficeIcon,
   ShieldCheckIcon,
-  ClockIcon
+  ClockIcon,
+  UsersIcon,
+  ArrowDownTrayIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../hooks/useAuth';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface NavbarProps {
   role?: string;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location  = useLocation();
+  const navigate  = useNavigate();
   const { user, logout } = useAuth();
   const { canView } = usePermissions();
-  
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+
+  const [isMenuOpen,        setIsMenuOpen]        = useState(false);
+  const [isMobile,          setIsMobile]          = useState(false);
+  const [isScrolled,        setIsScrolled]        = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  
+  const [adminMenuOpen,     setAdminMenuOpen]     = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
+
   const userRole = user?.role || propRole || 'Opérateur';
 
   useEffect(() => {
-    const checkScreen = () => setIsMobile(window.innerWidth < 640);
+    const checkScreen  = () => setIsMobile(window.innerWidth < 640);
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
     checkScreen();
     window.addEventListener('resize', checkScreen);
@@ -48,9 +53,20 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     };
   }, []);
 
+  // Fermer le menu admin en cliquant ailleurs
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setAdminMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const isActiveLink = (path: string) => {
-    if (path === "/home") return location.pathname === "/home" || location.pathname === "/dashboard";
-    return location.pathname === path;
+    if (path === '/accueil') return location.pathname === '/accueil' || location.pathname === '/';
+    return location.pathname.startsWith(path);
   };
 
   const handleLogout = async () => {
@@ -59,17 +75,32 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     navigate('/login');
   };
 
+  // Sous-menu Administration
+  const adminSubItems = [
+    ...(canView('comptes')      ? [{ path: '/administration/comptes',    label: 'Comptes',      icon: UsersIcon }] : []),
+    ...(canView('mises-a-jour') ? [{ path: '/administration/mises-a-jour', label: 'Mises à jour', icon: ArrowDownTrayIcon }] : []),
+  ];
+
+  const showAdminMenu = adminSubItems.length > 0;
+
+  // Liens principaux (hors Administration)
   const navItems = [
-    { path: "/home",           label: "Accueil",         labelShort: "Accueil",   icon: HomeIcon,             color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: true },
-    { path: "/inventaire",     label: "Inventaire",      labelShort: "Recherche", icon: MagnifyingGlassIcon,  color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: canView('inventaire') },
-    { path: "/dashboard",      label: "Tableau de bord", labelShort: "Tableau",   icon: ChartBarIcon,         color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: canView('dashboard') },
-    { path: "/journal",        label: "Journal",         labelShort: "Journal",   icon: DocumentTextIcon,     color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: canView('journal') },
-    { path: "/gestion-comptes",label: "Gestion comptes", labelShort: "Comptes",   icon: UsersIcon,            color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: canView('gestion-comptes') },
-    { path: "/profil",         label: "Profil",          labelShort: "Profil",    icon: UserIcon,             color: "from-[#F77F00] to-[#FF9E40]", hoverColor: "hover:bg-orange-50 hover:text-[#F77F00]", permission: canView('profil') },
+    { path: '/accueil',         label: 'Accueil',        labelShort: 'Accueil',  icon: HomeIcon,           permission: true },
+    { path: '/tableau-de-bord', label: 'Tableau de bord', labelShort: 'Stats',   icon: ChartBarIcon,       permission: canView('tableau-de-bord') },
+    { path: '/recherche',       label: 'Recherche',      labelShort: 'Rech.',    icon: MagnifyingGlassIcon, permission: canView('recherche') },
+    { path: '/journal',         label: 'Journal',        labelShort: 'Journal',  icon: DocumentTextIcon,   permission: canView('journal') },
+    { path: '/profil',          label: 'Profil',         labelShort: 'Profil',   icon: UserIcon,           permission: canView('profil') },
   ].filter(item => item.permission);
 
+  const color      = "from-[#F77F00] to-[#FF9E40]";
+  const hoverColor = "hover:bg-orange-50 hover:text-[#F77F00]";
+
+  const isAdminActive = location.pathname.startsWith('/administration');
+
   const navbarClasses = `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
-    isScrolled ? 'bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-100' : 'bg-white/90 backdrop-blur-md border-b border-gray-100'
+    isScrolled
+      ? 'bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-100'
+      : 'bg-white/90 backdrop-blur-md border-b border-gray-100'
   }`;
 
   return (
@@ -78,10 +109,9 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 md:h-16">
 
-            {/* ── Logo : image + GESCARD + coordination ── */}
+            {/* ── Logo ── */}
             <div className="flex items-center flex-shrink-0">
-              <Link to="/home" className="flex items-center gap-2.5">
-                {/* Image logo uniquement */}
+              <Link to="/accueil" className="flex items-center gap-2.5">
                 <div className="relative flex-shrink-0">
                   <img
                     src="/logo-placeholder.jpeg"
@@ -90,13 +120,12 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                   />
                   <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-green-500 rounded-full border border-white animate-pulse" />
                 </div>
-
-
               </Link>
             </div>
 
             {/* ── Menu Desktop ── */}
             <div className="hidden lg:flex items-center gap-1 xl:gap-2 flex-1 justify-center pl-8">
+
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -105,11 +134,10 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                     to={item.path}
                     className={`relative px-3 py-2 rounded-lg transition-all duration-300 font-medium text-xs xl:text-sm whitespace-nowrap ${
                       isActiveLink(item.path)
-                        ? `text-white bg-gradient-to-r ${item.color} shadow-md`
-                        : `text-gray-700 ${item.hoverColor}`
+                        ? `text-white bg-gradient-to-r ${color} shadow-md`
+                        : `text-gray-700 ${hoverColor}`
                     }`}
                     aria-current={isActiveLink(item.path) ? "page" : undefined}
-                    title={item.label}
                   >
                     <span className="flex items-center gap-1.5">
                       <Icon className="w-4 h-4" />
@@ -126,13 +154,68 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 );
               })}
 
+              {/* ── Menu Administration (dropdown) ── */}
+              {showAdminMenu && (
+                <div className="relative" ref={adminMenuRef}>
+                  <button
+                    onClick={() => setAdminMenuOpen(!adminMenuOpen)}
+                    className={`relative px-3 py-2 rounded-lg transition-all duration-300 font-medium text-xs xl:text-sm whitespace-nowrap flex items-center gap-1.5 ${
+                      isAdminActive
+                        ? `text-white bg-gradient-to-r ${color} shadow-md`
+                        : `text-gray-700 ${hoverColor}`
+                    }`}
+                  >
+                    <Cog6ToothIcon className="w-4 h-4" />
+                    <span className="hidden xl:inline">Administration</span>
+                    <span className="xl:hidden">Admin</span>
+                    <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${adminMenuOpen ? 'rotate-180' : ''}`} />
+                    {isAdminActive && (
+                      <motion.div
+                        layoutId="navbar-indicator"
+                        className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2/3 h-0.5 bg-white rounded-full"
+                      />
+                    )}
+                  </button>
+
+                  <AnimatePresence>
+                    {adminMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-full mt-2 left-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+                      >
+                        {adminSubItems.map((sub) => {
+                          const SubIcon = sub.icon;
+                          return (
+                            <Link
+                              key={sub.path}
+                              to={sub.path}
+                              onClick={() => setAdminMenuOpen(false)}
+                              className={`flex items-center gap-3 px-4 py-3 text-sm transition-all duration-200 ${
+                                location.pathname === sub.path
+                                  ? 'bg-gradient-to-r from-[#F77F00]/10 to-[#FF9E40]/10 text-[#F77F00] font-semibold'
+                                  : 'text-gray-700 hover:bg-orange-50 hover:text-[#F77F00]'
+                              }`}
+                            >
+                              <SubIcon className="w-4 h-4 flex-shrink-0" />
+                              <span>{sub.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
               {/* Déconnexion */}
               <motion.button
                 onClick={() => setShowLogoutConfirm(true)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-3 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-xs xl:text-sm font-medium shadow hover:shadow-md transition-all duration-300 ml-1"
-                title="Déconnexion"
               >
                 <span className="flex items-center gap-1.5">
                   <ArrowRightOnRectangleIcon className="w-4 h-4" />
@@ -153,13 +236,11 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
               {navItems.slice(0, 3).map((item) => {
                 const Icon = item.icon;
                 return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
+                  <Link key={item.path} to={item.path}
                     className={`relative p-2 rounded-lg transition-all duration-300 ${
                       isActiveLink(item.path)
-                        ? `text-white bg-gradient-to-r ${item.color} shadow-md`
-                        : `text-gray-700 ${item.hoverColor}`
+                        ? `text-white bg-gradient-to-r ${color} shadow-md`
+                        : `text-gray-700 ${hoverColor}`
                     }`}
                     title={item.label}
                   >
@@ -168,30 +249,39 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 );
               })}
 
-              {navItems.length > 3 && (
-                <div className="relative group">
-                  <button className="p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
-                    <ChevronDownIcon className="w-4 h-4" />
-                  </button>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    {navItems.slice(3).map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link key={item.path} to={item.path} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg">
-                          <span className="flex items-center gap-2"><Icon className="w-4 h-4" /><span>{item.label}</span></span>
-                        </Link>
-                      );
-                    })}
-                  </div>
+              {/* Dropdown reste + Administration tablette */}
+              <div className="relative group">
+                <button className="p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
+                  <ChevronDownIcon className="w-4 h-4" />
+                </button>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  {navItems.slice(3).map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link key={item.path} to={item.path} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg">
+                        <span className="flex items-center gap-2"><Icon className="w-4 h-4" /><span>{item.label}</span></span>
+                      </Link>
+                    );
+                  })}
+                  {showAdminMenu && (
+                    <>
+                      <div className="border-t border-gray-100 my-1" />
+                      <div className="px-4 py-1 text-xs text-gray-400 font-semibold uppercase tracking-wide">Administration</div>
+                      {adminSubItems.map((sub) => {
+                        const SubIcon = sub.icon;
+                        return (
+                          <Link key={sub.path} to={sub.path} className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#F77F00] last:rounded-b-lg">
+                            <span className="flex items-center gap-2"><SubIcon className="w-4 h-4" /><span>{sub.label}</span></span>
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
 
-              <motion.button
-                onClick={() => setShowLogoutConfirm(true)}
-                whileTap={{ scale: 0.95 }}
-                className="p-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow"
-                title="Déconnexion"
-              >
+              <motion.button onClick={() => setShowLogoutConfirm(true)} whileTap={{ scale: 0.95 }}
+                className="p-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white shadow" title="Déconnexion">
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
               </motion.button>
             </div>
@@ -233,22 +323,54 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
               className="md:hidden bg-white shadow-2xl border-t border-gray-200 absolute top-full left-0 right-0 overflow-hidden z-50"
             >
               <div className="py-2 px-2 space-y-1 max-h-[70vh] overflow-y-auto">
+
+                {/* Liens principaux */}
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link key={item.path} to={item.path} onClick={() => setIsMenuOpen(false)}
-                      className={`block px-4 py-3 rounded-xl transition-all duration-300 font-medium text-sm relative ${
-                        isActiveLink(item.path) ? `text-white bg-gradient-to-r ${item.color} shadow-lg` : `text-gray-700 bg-gray-50 hover:bg-gray-100`
+                      className={`block px-4 py-3 rounded-xl transition-all duration-300 font-medium text-sm ${
+                        isActiveLink(item.path)
+                          ? `text-white bg-gradient-to-r ${color} shadow-lg`
+                          : 'text-gray-700 bg-gray-50 hover:bg-gray-100'
                       }`}
                     >
-                      <span className="flex items-center justify-between">
-                        <span className="flex items-center gap-3"><Icon className="w-5 h-5" /><span>{item.label}</span></span>
-                        {isActiveLink(item.path) && <motion.div layoutId="mobile-navbar-indicator" className="w-2 h-2 bg-white rounded-full" />}
+                      <span className="flex items-center gap-3">
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
                       </span>
                     </Link>
                   );
                 })}
 
+                {/* Section Administration mobile */}
+                {showAdminMenu && (
+                  <div className="mt-2">
+                    <div className="px-4 py-2 text-xs text-gray-400 font-semibold uppercase tracking-wide flex items-center gap-2">
+                      <Cog6ToothIcon className="w-3.5 h-3.5" />
+                      Administration
+                    </div>
+                    {adminSubItems.map((sub) => {
+                      const SubIcon = sub.icon;
+                      return (
+                        <Link key={sub.path} to={sub.path} onClick={() => setIsMenuOpen(false)}
+                          className={`block px-4 py-3 rounded-xl transition-all duration-300 font-medium text-sm ml-2 ${
+                            location.pathname === sub.path
+                              ? `text-white bg-gradient-to-r ${color} shadow-lg`
+                              : 'text-gray-700 bg-gray-50 hover:bg-orange-50 hover:text-[#F77F00]'
+                          }`}
+                        >
+                          <span className="flex items-center gap-3">
+                            <SubIcon className="w-5 h-5" />
+                            <span>{sub.label}</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Info utilisateur mobile */}
                 <div className="border-t border-gray-200 my-2 pt-2">
                   <div className="px-4 py-3 bg-gradient-to-r from-[#F77F00]/10 to-[#FF9E40]/10 rounded-xl">
                     <div className="text-xs text-gray-600 mb-2">Connecté en tant que</div>
@@ -280,8 +402,8 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
 
               <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
                 <div className="text-center space-y-1">
-                  <div className="text-xs text-gray-600 font-medium">GESCARD v2.0.0</div>
-                  <div className="text-xs text-gray-500">© 2025 Tous droits réservés</div>
+                  <div className="text-xs text-gray-600 font-medium">GESCARD v3.1.0</div>
+                  <div className="text-xs text-gray-500">© 2026 Tous droits réservés</div>
                 </div>
               </div>
             </motion.div>

@@ -1,3 +1,4 @@
+// src/pages/Accueil.tsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +7,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+// ✅ Import de BACKEND_URL — source unique de vérité, s'adapte dev/prod automatiquement
+import { BACKEND_URL } from '../Services/api/client';
 
 /* ─────────────────────────────────────────
    Données
@@ -58,12 +61,12 @@ function formatDate(): string {
 /* ─────────────────────────────────────────
    Composant principal
 ───────────────────────────────────────── */
-const Home: React.FC = () => {
-    const navigate = useNavigate();
+const Accueil: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [infoIdx,  setInfoIdx]    = useState(0);
-  const [infoDir,  setInfoDir]    = useState(1);   // 1 = forward, -1 = backward
+  const [infoIdx, setInfoIdx] = useState(0);
+  const [infoDir, setInfoDir] = useState(1);
   const [time, setTime] = useState(new Date());
 
   /* Horloge temps réel */
@@ -177,7 +180,6 @@ const Home: React.FC = () => {
           </AnimatePresence>
         </div>
 
-
         {/* ── Contenu principal ── */}
         <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
 
@@ -190,17 +192,14 @@ const Home: React.FC = () => {
                 boxShadow: '0 8px 40px rgba(247,127,0,.22)',
               }}
             >
-              {/* Micro-points décoratifs */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{ backgroundImage: 'radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1px)', backgroundSize: '22px 22px' }}
               />
-              {/* Reflet vert */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{ background: 'radial-gradient(ellipse 120% 140% at 100% -10%, rgba(46,139,87,.22) 0%, transparent 55%)' }}
               />
-              {/* Arc déco */}
               <div
                 className="absolute -bottom-16 -right-16 w-64 h-64 rounded-full pointer-events-none"
                 style={{ border: '2px solid rgba(255,255,255,.12)' }}
@@ -212,7 +211,6 @@ const Home: React.FC = () => {
 
               <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                  {/* Salutation + Horloge */}
                   <div className="flex items-center gap-4 mb-1 flex-wrap">
                     <p className="text-white/70 text-sm font-light tracking-widest uppercase">
                       {formatDate()}
@@ -228,9 +226,8 @@ const Home: React.FC = () => {
                     <h1 className="text-3xl md:text-4xl font-bold text-white" style={{ textShadow: '0 2px 16px rgba(0,0,0,.12)' }}>
                       {getGreeting()}, {displayName}
                     </h1>
-                    {/* Lien Inventaire inline */}
                     <button
-                      onClick={() => navigate('/inventaire')}
+                      onClick={() => navigate('/recherche')}
                       className="flex items-center gap-2.5 bg-white text-[#F77F00] font-bold text-sm px-6 py-3 rounded-full transition-all hover:scale-105 hover:shadow-xl flex-shrink-0 ml-4"
                       style={{ boxShadow: '0 6px 24px rgba(0,0,0,.18)', fontSize: '15px' }}
                     >
@@ -239,6 +236,20 @@ const Home: React.FC = () => {
                       </svg>
                       Accéder à l'inventaire
                     </button>
+
+                    {/* ✅ BACKEND_URL garantit l'absence de double /api */}
+                    <a
+                      href={`${BACKEND_URL}/api/updates/download`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 bg-white/15 border border-white/30 text-white font-semibold text-sm px-5 py-3 rounded-full transition-all hover:bg-white/25 hover:scale-105 flex-shrink-0 backdrop-blur-sm"
+                      style={{ fontSize: '14px' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Télécharger le logiciel
+                    </a>
                   </div>
                   {role && (
                     <span className="tag-pill bg-white/20 text-white border border-white/30">
@@ -246,7 +257,6 @@ const Home: React.FC = () => {
                     </span>
                   )}
                 </div>
-
               </div>
             </div>
           </section>
@@ -260,7 +270,6 @@ const Home: React.FC = () => {
                 className="card-hover h-full bg-white rounded-3xl border p-7"
                 style={{ borderColor: 'rgba(247,127,0,.15)', boxShadow: '0 4px 24px rgba(0,0,0,.06)' }}
               >
-                {/* En-tête */}
                 <div className="flex items-center gap-3 mb-5">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -276,10 +285,8 @@ const Home: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Séparateur */}
                 <div className="h-px mb-5" style={{ background: 'linear-gradient(90deg,#F77F00,rgba(247,127,0,.05))' }} />
 
-                {/* Contenu */}
                 <div className="space-y-3 text-gray-600 text-sm leading-relaxed">
                   <p><strong className="text-gray-800">Chers collaborateurs,</strong></p>
                   <p>
@@ -303,7 +310,6 @@ const Home: React.FC = () => {
                 className="card-hover h-full bg-white rounded-3xl border p-7 flex flex-col"
                 style={{ borderColor: 'rgba(0,119,182,.15)', boxShadow: '0 4px 24px rgba(0,0,0,.06)' }}
               >
-                {/* En-tête */}
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div
@@ -320,7 +326,6 @@ const Home: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Contrôles */}
                   <div className="flex items-center gap-1">
                     <button
                       onClick={prevInfo}
@@ -337,10 +342,8 @@ const Home: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Séparateur */}
                 <div className="h-px mb-5" style={{ background: 'linear-gradient(90deg,#0077B6,rgba(0,119,182,.05))' }} />
 
-                {/* Carrousel */}
                 <div className="flex-1 overflow-hidden relative">
                   <AnimatePresence mode="wait" custom={infoDir}>
                     <motion.div
@@ -374,7 +377,6 @@ const Home: React.FC = () => {
                   </AnimatePresence>
                 </div>
 
-                {/* Indicateurs */}
                 <div className="flex justify-center gap-1.5 mt-5 pt-4 border-t border-gray-100">
                   {informations.map((_, i) => (
                     <button
@@ -402,6 +404,18 @@ const Home: React.FC = () => {
               © {new Date().getFullYear()} GESCARD — Coordination Abidjan Nord Cocody
             </p>
             <p className="text-xs text-gray-400 font-light">Simplicité, rapidité, maîtrise.</p>
+            {/* ✅ BACKEND_URL garantit l'absence de double /api */}
+            <a
+              href={`${BACKEND_URL}/api/updates/download`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-[#F77F00] font-semibold hover:underline transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Télécharger GESCARD
+            </a>
           </div>
         </footer>
       </div>
@@ -409,4 +423,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home;
+export default Accueil;

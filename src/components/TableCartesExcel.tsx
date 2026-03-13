@@ -1,27 +1,19 @@
 // src/components/TableCartesExcel.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Carte } from "../types";
 import {
-  PencilIcon,
-  CheckCircleIcon,
-  LockClosedIcon,
-  LockOpenIcon,
-  DocumentTextIcon,
-  CalendarIcon,
-  PhoneIcon,
-  UserIcon,
-  MapPinIcon,
-  BuildingOfficeIcon,
-  CheckIcon,
-  ArrowDownTrayIcon,
-  TableCellsIcon,
+  PencilIcon, CheckCircleIcon, LockClosedIcon, LockOpenIcon,
+  DocumentTextIcon, CalendarIcon, PhoneIcon, UserIcon,
+  MapPinIcon, BuildingOfficeIcon, CheckIcon,
 } from '@heroicons/react/24/outline';
 
+const ORANGE = '#E07B00';
+const GREEN  = '#2E7D52';
+
 interface TableCartesExcelProps {
-  cartes: Carte[];
+  cartes: any[];
   role: string;
-  onUpdateCartes: (cartes: Carte[]) => void;
+  onUpdateCartes: (cartes: any[]) => void;
   canEdit?: boolean;
   editFields?: string[];
   onExportCSV?: () => void;
@@ -29,81 +21,100 @@ interface TableCartesExcelProps {
 }
 
 const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
-  cartes,
-  role,
-  onUpdateCartes,
-  canEdit = true,
-  editFields = [],
-  onExportCSV,
-  onExportExcel,
+  cartes, role, onUpdateCartes, canEdit = true, editFields = [],
 }) => {
-  const [editingCell, setEditingCell] = useState<{rowIndex: number, field: string} | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [localCartes, setLocalCartes] = useState<Carte[]>(cartes);
-  const [isMobile, setIsMobile] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
+  const [editValue,   setEditValue]   = useState('');
+  const [localCartes, setLocalCartes] = useState<any[]>(cartes);
+  const [isMobile,    setIsMobile]    = useState(false);
+  const [isTablet,    setIsTablet]    = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    const check = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 640);
+      setIsTablet(w >= 640 && w < 1024);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
+  // ✅ FIX : Ne réinitialiser localCartes que lors d'un nouveau jeu de données
+  // (nouvelle recherche), PAS à chaque mise à jour qui écraserait les modifications en cours
+  const prevIdsRef = useRef<string>('');
   useEffect(() => {
-    setLocalCartes(cartes);
+    const nextIds = cartes.map((c: any) => c.id).join(',');
+    if (prevIdsRef.current !== nextIds) {
+      setLocalCartes(cartes);
+      prevIdsRef.current = nextIds;
+    }
   }, [cartes]);
 
   const isChefEquipe = role === "Chef d'équipe";
-  const isOperateur  = role === "Opérateur";
-  const chefEquipeFields = ['delivrance', 'contactRetrait', 'dateDelivrance'];
+  const isOperateur  = role === 'Opérateur';
+  const chefFields   = ['delivrance', 'contactRetrait', 'dateDelivrance'];
 
   const isFieldEditable = (field: string): boolean => {
-    if (!canEdit) return false;
-    if (isOperateur) return false;
-    if (isChefEquipe) return chefEquipeFields.includes(field);
-    if (editFields && editFields.length > 0) return editFields.includes(field);
+    if (!canEdit || isOperateur) return false;
+    if (isChefEquipe) return chefFields.includes(field);
+    if (editFields?.length) return editFields.includes(field);
     return true;
   };
 
-  const colonnes = [
-    { key: "coordination",   label: "Coordination",    icon: BuildingOfficeIcon, width: "w-28 md:w-32" },
-    { key: "lieuEnrolement", label: "Lieu Enr.",        icon: MapPinIcon,         width: "w-28 md:w-32" },
-    { key: "siteRetrait",    label: "Site Retrait",     icon: MapPinIcon,         width: "w-28 md:w-32" },
-    { key: "rangement",      label: "Rangement",        icon: DocumentTextIcon,   width: "w-24 md:w-28" },
-    { key: "nom",            label: "Nom",              icon: UserIcon,           width: "w-24 md:w-28" },
-    // ✅ CORRECTION: "prenoms" (avec s) = nom réel de la colonne en base
-    { key: "prenoms",        label: "Prénom(s)",        icon: UserIcon,           width: "w-24 md:w-28" },
-    { key: "lieuNaissance",  label: "Lieu Naiss.",      icon: MapPinIcon,         width: "w-28 md:w-32" },
-    { key: "dateNaissance",  label: "Date Naiss.",      icon: CalendarIcon,       width: "w-24 md:w-28" },
-    // ✅ CORRECTION: contact est une colonne directe en base
-    { key: "contact",        label: "Contact",          icon: PhoneIcon,          width: "w-24 md:w-28" },
-    // ✅ CORRECTION: delivrance affiche la valeur brute de la BDD (nom livreur ou mention)
-    { key: "delivrance",     label: "Délivrance",       icon: CheckCircleIcon,    width: "w-32 md:w-40" },
-    { key: "contactRetrait", label: "Contact Retrait",  icon: PhoneIcon,          width: "w-24 md:w-28" },
-    { key: "dateDelivrance", label: "Date Retrait",     icon: CalendarIcon,       width: "w-24 md:w-28" },
+  // Colonnes adaptées selon l'écran
+  const colonnesDesktop = [
+    { key: 'coordination',   label: 'Coordination',   icon: BuildingOfficeIcon, width: 'min-w-[130px]' },
+    { key: 'lieuEnrolement', label: "Lieu Enr.",       icon: MapPinIcon,         width: 'min-w-[130px]' },
+    { key: 'siteRetrait',    label: 'Site Retrait',    icon: MapPinIcon,         width: 'min-w-[130px]' },
+    { key: 'rangement',      label: 'Rangement',       icon: DocumentTextIcon,   width: 'min-w-[110px]' },
+    { key: 'nom',            label: 'Nom',             icon: UserIcon,           width: 'min-w-[110px]' },
+    { key: 'prenoms',        label: 'Prénom(s)',       icon: UserIcon,           width: 'min-w-[110px]' },
+    { key: 'lieuNaissance',  label: 'Lieu Naiss.',     icon: MapPinIcon,         width: 'min-w-[130px]' },
+    { key: 'dateNaissance',  label: 'Date Naiss.',     icon: CalendarIcon,       width: 'min-w-[110px]' },
+    { key: 'contact',        label: 'Contact',         icon: PhoneIcon,          width: 'min-w-[110px]' },
+    { key: 'delivrance',     label: 'Délivrance',      icon: CheckCircleIcon,    width: 'min-w-[150px]' },
+    { key: 'contactRetrait', label: 'Contact Retrait', icon: PhoneIcon,          width: 'min-w-[120px]' },
+    { key: 'dateDelivrance', label: 'Date Retrait',    icon: CalendarIcon,       width: 'min-w-[110px]' },
   ];
+  const colonnesTablet = [
+    { key: 'coordination',   label: 'Coord.',     icon: BuildingOfficeIcon, width: 'min-w-[100px]' },
+    { key: 'siteRetrait',    label: 'Site',       icon: MapPinIcon,         width: 'min-w-[100px]' },
+    { key: 'rangement',      label: 'Rang.',      icon: DocumentTextIcon,   width: 'min-w-[90px]'  },
+    { key: 'nom',            label: 'Nom',        icon: UserIcon,           width: 'min-w-[100px]' },
+    { key: 'prenoms',        label: 'Prénoms',    icon: UserIcon,           width: 'min-w-[100px]' },
+    { key: 'contact',        label: 'Contact',    icon: PhoneIcon,          width: 'min-w-[100px]' },
+    { key: 'delivrance',     label: 'Délivrance', icon: CheckCircleIcon,    width: 'min-w-[130px]' },
+    { key: 'contactRetrait', label: 'Ctt. Ret.',  icon: PhoneIcon,          width: 'min-w-[100px]' },
+    { key: 'dateDelivrance', label: 'Date Ret.',  icon: CalendarIcon,       width: 'min-w-[100px]' },
+  ];
+  const colonnesMobile = [
+    { key: 'nom',            label: 'Nom',       icon: UserIcon,           width: 'min-w-[90px]'  },
+    { key: 'prenoms',        label: 'Prénoms',   icon: UserIcon,           width: 'min-w-[90px]'  },
+    { key: 'rangement',      label: 'Rang.',     icon: DocumentTextIcon,   width: 'min-w-[70px]'  },
+    { key: 'delivrance',     label: 'Délivré',   icon: CheckCircleIcon,    width: 'min-w-[120px]' },
+    { key: 'contactRetrait', label: 'Contact',   icon: PhoneIcon,          width: 'min-w-[90px]'  },
+    { key: 'dateDelivrance', label: 'Date Ret.', icon: CalendarIcon,       width: 'min-w-[90px]'  },
+  ];
+  const colonnes = isMobile ? colonnesMobile : isTablet ? colonnesTablet : colonnesDesktop;
 
-  // ✅ Teste si une carte est délivrée : colonne vide = non délivrée
-  // La valeur peut être un nom de personne, "OUI", "DELIVRE", etc.
+  const cellPx = isMobile ? 'px-2 py-2'   : isTablet ? 'px-3 py-2.5' : 'px-4 py-2.5';
+  const headPx = isMobile ? 'px-2 py-2.5' : isTablet ? 'px-3 py-3'   : 'px-4 py-3';
+  const textSz = isMobile ? 'text-xs'     : 'text-sm';
+  const iconSz = isMobile ? 'w-3 h-3'     : 'w-4 h-4';
+
   const isDelivre = (val: any): boolean => {
-    if (val === null || val === undefined) return false;
+    if (!val) return false;
     const s = String(val).trim();
-    if (s === '') return false;
-    // Valeurs explicitement "non délivré"
-    if (['NON', 'non', 'Non', 'false', 'FALSE', '0'].includes(s)) return false;
-    // Toute autre valeur non vide = délivré (nom du livreur, "OUI", "DELIVRE", etc.)
-    return true;
+    return s !== '' && !['NON', 'non', 'Non', 'false', '0'].includes(s);
   };
 
-  // ✅ Affiche la valeur brute de delivrance depuis la BDD
-  // Si vide → "Non délivré", sinon on affiche la valeur telle quelle (nom, mention, etc.)
   const getDelivranceDisplay = (val: any): string => {
-    if (val === null || val === undefined) return '—';
+    if (!val) return '—';
     const s = String(val).trim();
-    if (s === '') return '—';
-    if (['NON', 'non', 'Non', 'false', 'FALSE', '0'].includes(s)) return 'Non délivré';
-    if (['OUI', 'oui', 'Oui', 'true', 'TRUE', '1'].includes(s)) return 'Délivré';
-    // Valeur personnalisée (nom du livreur, mention personnalisée, etc.)
+    if (!s) return '—';
+    if (['NON', 'non', 'Non', 'false', '0'].includes(s)) return 'Non délivré';
+    if (['OUI', 'oui', 'Oui', 'true', '1'].includes(s)) return 'Délivré';
     return s;
   };
 
@@ -114,13 +125,10 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
       case 'siteRetrait':    return carte.siteRetrait    || carte["SITE DE RETRAIT"]   || '-';
       case 'rangement':      return carte.rangement      || '-';
       case 'nom':            return carte.nom            || '-';
-      // ✅ CORRECTION: lire prenoms (avec s) — c'est le vrai nom de colonne en base
       case 'prenoms':        return carte.prenoms        || carte.prenom               || '-';
       case 'lieuNaissance':  return carte.lieuNaissance  || carte["LIEU NAISSANCE"]    || '-';
       case 'dateNaissance':  return carte.dateNaissance  || carte["DATE DE NAISSANCE"] || '-';
-      // ✅ CORRECTION: contact est retourné directement par le backend
       case 'contact':        return carte.contact        || '-';
-      // ✅ CORRECTION: afficher la valeur brute de la BDD
       case 'delivrance':     return getDelivranceDisplay(carte.delivrance);
       case 'contactRetrait': return carte.contactRetrait || carte["CONTACT DE RETRAIT"] || '-';
       case 'dateDelivrance': return carte.dateDelivrance || carte["DATE DE DELIVRANCE"]  || '-';
@@ -128,196 +136,114 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     }
   };
 
+  const formatDate = (s: string): string => {
+    if (!s || s === '-') return '-';
+    try { const d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleDateString('fr-FR'); }
+    catch { return s; }
+  };
+
   const handleCellClick = (rowIndex: number, field: string) => {
-    if (!isFieldEditable(field)) return;
-    if (field === 'delivrance') return; // delivrance a sa propre logique d'édition
-    const currentValue = getCellValue(localCartes[rowIndex], field);
-    setEditValue(currentValue === '-' ? '' : currentValue);
+    if (!isFieldEditable(field) || field === 'delivrance') return;
+    const v = getCellValue(localCartes[rowIndex], field);
+    setEditValue(v === '-' ? '' : v);
     setEditingCell({ rowIndex, field });
   };
 
   const handleSaveEdit = () => {
     if (!editingCell) return;
     const { rowIndex, field } = editingCell;
-    const updatedCartes = [...localCartes];
-    updatedCartes[rowIndex] = { ...updatedCartes[rowIndex], [field]: editValue };
-    setLocalCartes(updatedCartes);
-    onUpdateCartes(updatedCartes);
+    const updated = [...localCartes];
+    updated[rowIndex] = { ...updated[rowIndex], [field]: editValue };
+    setLocalCartes(updated);
+    onUpdateCartes(updated);
     setEditingCell(null);
-    setEditValue("");
+    setEditValue('');
   };
 
-  // ✅ Pour delivrance : bascule entre '' (non délivré) et 'OUI' (délivré)
   const handleDelivranceToggle = (rowIndex: number) => {
     if (!isFieldEditable('delivrance')) return;
-    const updatedCartes = [...localCartes];
-    const current = (updatedCartes[rowIndex] as any).delivrance;
-    const nowDelivre = isDelivre(current);
-    // Si déjà délivré → vider (non délivré). Si non délivré → mettre 'OUI'
-    (updatedCartes[rowIndex] as any).delivrance = nowDelivre ? '' : 'OUI';
-    setLocalCartes(updatedCartes);
-    onUpdateCartes(updatedCartes);
+    const updated = [...localCartes];
+    updated[rowIndex] = {
+      ...updated[rowIndex],
+      delivrance: isDelivre(updated[rowIndex].delivrance) ? '' : 'OUI',
+    };
+    setLocalCartes(updated);
+    onUpdateCartes(updated);
   };
 
-  // ✅ Édition inline de la valeur delivrance (pour entrer un nom de livreur)
   const handleDelivranceEdit = (rowIndex: number) => {
     if (!isFieldEditable('delivrance')) return;
-    const current = getCellValue(localCartes[rowIndex], 'delivrance');
-    setEditValue(current === '—' || current === 'Non délivré' ? '' : current);
+    const cur = getCellValue(localCartes[rowIndex], 'delivrance');
+    setEditValue(['—', 'Non délivré'].includes(cur) ? '' : cur);
     setEditingCell({ rowIndex, field: 'delivrance' });
   };
 
   const handleDelivranceSave = () => {
     if (!editingCell || editingCell.field !== 'delivrance') return;
-    const { rowIndex } = editingCell;
-    const updatedCartes = [...localCartes];
-    (updatedCartes[rowIndex] as any).delivrance = editValue.trim();
-    setLocalCartes(updatedCartes);
-    onUpdateCartes(updatedCartes);
+    const updated = [...localCartes];
+    updated[editingCell.rowIndex] = {
+      ...updated[editingCell.rowIndex],
+      delivrance: editValue.trim(),
+    };
+    setLocalCartes(updated);
+    onUpdateCartes(updated);
     setEditingCell(null);
-    setEditValue("");
+    setEditValue('');
   };
 
-  const formatDate = (dateString: string): string => {
-    if (!dateString || dateString === '-') return '-';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-      return date.toLocaleDateString('fr-FR');
-    } catch { return dateString; }
-  };
-
-  // ✅ Export CSV local avec toutes les colonnes y compris prenoms et contact
-  const handleExportCSVLocal = () => {
-    if (onExportCSV) { onExportCSV(); return; }
-
-    const headers = colonnes.map(c => c.label);
-    const rows = localCartes.map(carte =>
-      colonnes.map(col => {
-        const val = getCellValue(carte, col.key);
-        return `"${val.replace(/"/g, '""')}"`;
-      }).join(',')
-    );
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `resultats-cartes-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // ✅ Export Excel local via SheetJS (si disponible) ou fallback CSV
-  const handleExportExcelLocal = () => {
-    if (onExportExcel) { onExportExcel(); return; }
-    // Fallback CSV si pas de handler parent
-    handleExportCSVLocal();
-  };
-
-  const cartesModifiees = localCartes.filter((carte, index) => {
-    const originale = cartes[index];
-    if (!originale) return false;
-    return chefEquipeFields.some(f => (carte as any)[f] !== (originale as any)[f]);
+  // ✅ FIX : Comptage des modifs par id (pas par index) pour l'affichage
+  const cartesModifiees = localCartes.filter((carte) => {
+    const orig = cartes.find((c: any) => c.id === carte.id);
+    return orig && chefFields.some(f => carte[f] !== orig[f]);
   });
 
-  if (localCartes.length === 0) {
+  if (!localCartes.length) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 p-8 md:p-12 text-center"
-      >
-        <DocumentTextIcon className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-3" />
-        <h3 className={`font-semibold text-gray-600 mb-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
-          Aucune carte à afficher
-        </h3>
-        <p className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-          Utilisez la recherche pour trouver des cartes
-        </p>
-      </motion.div>
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <DocumentTextIcon className="w-12 h-12 text-gray-200" />
+        <p className="text-gray-400 text-sm">Aucune carte à afficher</p>
+      </div>
     );
   }
 
   return (
-    <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-orange-100 overflow-hidden">
-
-      {/* En-tête */}
-      <div className="bg-gradient-to-r from-[#F77F00] to-[#FF9E40] text-white px-3 md:px-6 py-2 md:py-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 md:gap-3">
-            <DocumentTextIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`} />
-            <div>
-              <h3 className={`font-bold ${isMobile ? 'text-sm' : 'text-base'}`}>Résultats</h3>
-              <p className={`text-white/90 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                {localCartes.length} carte{localCartes.length > 1 ? 's' : ''}
-                {cartesModifiees.length > 0 && (
-                  <span className="ml-2 bg-yellow-500/20 text-yellow-200 px-2 py-0.5 rounded-full text-xs">
-                    {cartesModifiees.length} modif.
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* ✅ Bouton Export CSV */}
-            <button
-              onClick={handleExportCSVLocal}
-              title="Exporter les résultats en CSV"
-              className={`flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white border border-white/30 rounded-lg transition-all font-medium ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'}`}
-            >
-              <DocumentTextIcon className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
-              <span>CSV</span>
-            </button>
-
-            {/* ✅ Bouton Export Excel */}
-            <button
-              onClick={handleExportExcelLocal}
-              title="Exporter les résultats en Excel"
-              className={`flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white border border-white/30 rounded-lg transition-all font-medium ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'}`}
-            >
-              <TableCellsIcon className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
-              <span>Excel</span>
-            </button>
-
-            {/* Badge permissions */}
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-              isOperateur  ? 'bg-gray-500/20 text-gray-200' :
-              isChefEquipe ? 'bg-orange-500/20 text-orange-200' :
-                             'bg-green-500/20 text-green-200'
-            }`}>
-              {isOperateur ? (
-                <><LockClosedIcon className="w-3 h-3" /><span>Lecture</span></>
-              ) : isChefEquipe ? (
-                <><PencilIcon className="w-3 h-3" /><span>Limité</span></>
-              ) : (
-                <><LockOpenIcon className="w-3 h-3" /><span>Édition</span></>
-              )}
-            </div>
-          </div>
+    <div>
+      {/* ── En-tête table ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-gray-700">
+            {localCartes.length} carte{localCartes.length > 1 ? 's' : ''}
+          </span>
+          {cartesModifiees.length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 border border-amber-200 text-amber-700">
+              {cartesModifiees.length} modif.
+            </span>
+          )}
+        </div>
+        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+          isOperateur  ? 'bg-gray-50 text-gray-500 border-gray-200'
+          : isChefEquipe ? 'bg-amber-50 text-amber-700 border-amber-200'
+          : 'bg-emerald-50 border-emerald-200'
+        }`} style={!isOperateur && !isChefEquipe ? { color: GREEN } : {}}>
+          {isOperateur  ? <><LockClosedIcon className="w-3 h-3 mr-1" />Lecture</> :
+           isChefEquipe ? <><PencilIcon className="w-3 h-3 mr-1" />Limité</> :
+                          <><LockOpenIcon className="w-3 h-3 mr-1" />Édition</>}
         </div>
       </div>
 
-      {/* Tableau avec scroll */}
+      {/* ── Tableau ── */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gradient-to-r from-[#0077B6] to-[#2E8B57] text-white">
-              {colonnes.map((col) => {
+            <tr style={{ background: `linear-gradient(135deg, ${GREEN} 0%, #3a9c68 100%)` }} className="text-white">
+              {colonnes.map(col => {
                 const Icon = col.icon;
-                const editable = isFieldEditable(col.key);
                 return (
-                  <th
-                    key={col.key}
-                    className={`px-2 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold border-r border-white/20 ${col.width}`}
-                  >
-                    <div className="flex items-center gap-1 md:gap-2">
-                      <Icon className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} flex-shrink-0`} />
-                      <span className="truncate">{col.label}</span>
-                      {!editable && <LockClosedIcon className="w-3 h-3 opacity-60 flex-shrink-0" />}
+                  <th key={col.key} className={`${headPx} text-left border-r border-white/10 ${col.width}`}>
+                    <div className="flex items-center gap-2">
+                      <Icon className={`${iconSz} opacity-80 flex-shrink-0`} />
+                      <span className={`${textSz} font-semibold whitespace-nowrap`}>{col.label}</span>
+                      {!isFieldEditable(col.key) && <LockClosedIcon className="w-3 h-3 opacity-40" />}
                     </div>
                   </th>
                 );
@@ -327,114 +253,85 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           <tbody>
             <AnimatePresence>
               {localCartes.map((carte, rowIndex) => (
-                <motion.tr
-                  key={(carte as any).id || rowIndex}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, delay: Math.min(rowIndex * 0.02, 0.5) }}
-                  className={`border-b border-gray-100 transition-colors ${
-                    isDelivre((carte as any).delivrance)
-                      ? 'bg-green-50/50 hover:bg-green-100/50'
-                      : 'hover:bg-orange-50/30'
+                <motion.tr key={carte.id || rowIndex}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  transition={{ delay: Math.min(rowIndex * 0.015, 0.4) }}
+                  className={`border-b border-gray-50 transition-colors ${
+                    isDelivre(carte.delivrance)
+                      ? 'bg-emerald-50/40 hover:bg-emerald-50/70'
+                      : rowIndex % 2 === 0
+                        ? 'bg-white hover:bg-amber-50/20'
+                        : 'bg-gray-50/30 hover:bg-amber-50/20'
                   }`}
                 >
-                  {colonnes.map((col) => {
+                  {colonnes.map(col => {
                     const cellValue  = getCellValue(carte, col.key);
                     const isEditing  = editingCell?.rowIndex === rowIndex && editingCell?.field === col.key;
                     const editable   = isFieldEditable(col.key);
-                    const displayVal = col.key.toLowerCase().includes('date')
-                      ? formatDate(cellValue)
-                      : cellValue;
+                    const displayVal = col.key.toLowerCase().includes('date') ? formatDate(cellValue) : cellValue;
 
-                    // ✅ Colonne delivrance : affichage spécial avec checkbox + valeur brute BDD
                     if (col.key === 'delivrance') {
-                      const delivered = isDelivre((carte as any).delivrance);
+                      const delivered = isDelivre(carte.delivrance);
                       return (
-                        <td
-                          key={col.key}
-                          className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm border-r border-gray-100 ${col.width}`}
-                        >
+                        <td key={col.key} className={`${cellPx} border-r border-gray-50 ${col.width}`}>
                           {isEditing ? (
-                            // Mode édition : input texte libre (nom livreur ou mention)
-                            <input
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
+                            <input type="text" value={editValue} autoFocus
+                              onChange={e => setEditValue(e.target.value)}
                               onBlur={handleDelivranceSave}
-                              onKeyDown={(e) => {
+                              onKeyDown={e => {
                                 if (e.key === 'Enter') handleDelivranceSave();
                                 else if (e.key === 'Escape') setEditingCell(null);
                               }}
-                              placeholder="Nom livreur ou mention..."
-                              className="w-full px-2 py-1 border-2 border-[#F77F00] rounded-lg bg-yellow-50 focus:outline-none text-xs md:text-sm"
-                              autoFocus
-                            />
+                              placeholder="Nom livreur ou mention…"
+                              className={`w-full px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none ${textSz}`}
+                              style={{ borderColor: ORANGE }} />
                           ) : (
                             <div className="flex items-center gap-2">
-                              {/* Checkbox pour basculer délivré/non délivré */}
                               <button
                                 onClick={() => handleDelivranceToggle(rowIndex)}
                                 disabled={!editable}
-                                className={`w-5 h-5 rounded border-2 transition-all flex items-center justify-center flex-shrink-0 ${
-                                  delivered
-                                    ? 'bg-[#2E8B57] border-[#2E8B57] text-white'
-                                    : 'bg-white border-gray-300 hover:border-[#F77F00]'
-                                } ${!editable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                              >
-                                {delivered && <CheckIcon className="w-3 h-3" />}
+                                className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                  !editable ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                                }`}
+                                style={delivered
+                                  ? { backgroundColor: GREEN, borderColor: GREEN }
+                                  : { backgroundColor: 'white', borderColor: '#d1d5db' }}>
+                                {delivered && <CheckIcon className={`${isMobile ? 'w-2 h-2' : 'w-3 h-3'} text-white`} />}
                               </button>
-
-                              {/* Valeur brute de la BDD (nom livreur, mention, "OUI", etc.) */}
                               <span
                                 onClick={() => editable && handleDelivranceEdit(rowIndex)}
-                                className={`truncate flex-1 ${
-                                  delivered
-                                    ? 'text-[#2E8B57] font-semibold'
-                                    : 'text-gray-400 italic'
-                                } ${editable ? 'cursor-pointer hover:underline' : ''}`}
-                                title={delivered ? String((carte as any).delivrance || '') : 'Non délivré'}
-                              >
+                                className={`truncate flex-1 ${textSz} ${editable ? 'cursor-pointer hover:underline' : ''}`}
+                                style={delivered
+                                  ? { color: GREEN, fontWeight: 600 }
+                                  : { color: '#9ca3af', fontStyle: 'italic' }}>
                                 {displayVal}
                               </span>
-
-                              {editable && !isEditing && (
-                                <PencilIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                              )}
+                              {editable && !isMobile && <PencilIcon className="w-3 h-3 text-gray-300 flex-shrink-0" />}
                             </div>
                           )}
                         </td>
                       );
                     }
 
-                    // Toutes les autres colonnes
                     return (
-                      <td
-                        key={col.key}
-                        className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm border-r border-gray-100 ${col.width}`}
-                        onClick={() => editable && handleCellClick(rowIndex, col.key)}
-                      >
+                      <td key={col.key} className={`${cellPx} border-r border-gray-50 ${col.width}`}
+                        onClick={() => editable && handleCellClick(rowIndex, col.key)}>
                         {isEditing ? (
-                          <input
-                            type="text"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
+                          <input type="text" value={editValue} autoFocus
+                            onChange={e => setEditValue(e.target.value)}
                             onBlur={handleSaveEdit}
-                            onKeyDown={(e) => {
+                            onKeyDown={e => {
                               if (e.key === 'Enter') handleSaveEdit();
                               else if (e.key === 'Escape') setEditingCell(null);
                             }}
-                            className="w-full px-2 py-1 border-2 border-[#F77F00] rounded-lg bg-yellow-50 focus:outline-none text-xs md:text-sm"
-                            autoFocus
-                          />
+                            className={`w-full px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none ${textSz}`}
+                            style={{ borderColor: ORANGE }} />
                         ) : (
-                          <div className={`flex items-center justify-between ${
-                            editable ? 'cursor-pointer hover:bg-orange-100/50 rounded px-1' : ''
+                          <div className={`flex items-center justify-between gap-1 ${
+                            editable ? 'cursor-pointer hover:bg-amber-50/40 rounded px-1 -mx-1' : ''
                           }`}>
-                            <span className="truncate">{displayVal}</span>
-                            {editable && !isEditing && (
-                              <PencilIcon className="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" />
-                            )}
+                            <span className={`truncate ${textSz} text-gray-700`}>{displayVal}</span>
+                            {editable && !isMobile && <PencilIcon className="w-3 h-3 text-gray-300 flex-shrink-0" />}
                           </div>
                         )}
                       </td>
@@ -447,51 +344,32 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </table>
       </div>
 
-      {/* Pied de tableau */}
-      <div className="bg-gray-50/80 border-t border-gray-200 px-3 md:px-6 py-2 md:py-3">
-        <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-gray-600">
-          <div className="flex items-center gap-2 md:gap-4">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-[#F77F00] rounded-full"></div>
-              <span>Éditable</span>
+      {/* ── Pied ── */}
+      <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-4 text-xs text-gray-400">
+          <span className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ORANGE }} />
+            Éditable
+          </span>
+          <span className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GREEN }} />
+            Délivrée
+          </span>
+          {!isOperateur && (
+            <span className="text-gray-300 hidden md:inline">
+              · Cliquez sur une cellule pour modifier
+              {isChefEquipe && ' (3 champs autorisés)'}
             </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-[#2E8B57] rounded-full"></div>
-              <span>Délivrée</span>
-            </span>
-            <span className="flex items-center gap-1 text-gray-400 italic">
-              <span>Colonne Délivrance = valeur brute BDD (vide = non délivré)</span>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Boutons export en bas */}
-            <button onClick={handleExportCSVLocal} className="flex items-center gap-1 text-[#F77F00] hover:underline font-medium">
-              <ArrowDownTrayIcon className="w-3 h-3" />
-              <span>CSV</span>
-            </button>
-            <button onClick={handleExportExcelLocal} className="flex items-center gap-1 text-[#0077B6] hover:underline font-medium">
-              <ArrowDownTrayIcon className="w-3 h-3" />
-              <span>Excel</span>
-            </button>
-            <span className="text-gray-500">
-              {localCartes.length} ligne{localCartes.length > 1 ? 's' : ''}
-              {cartesModifiees.length > 0 && (
-                <span className="ml-2 text-[#F77F00] font-medium">• {cartesModifiees.length} modif.</span>
-              )}
-            </span>
-          </div>
+          )}
         </div>
-
-        {!isOperateur && (
-          <div className="mt-2 pt-2 border-t border-gray-200">
-            <p className={`text-gray-500 flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-              <PencilIcon className="w-3 h-3" />
-              Cliquez sur une cellule pour modifier • Colonne Délivrance : cliquez sur le texte pour entrer un nom/mention
-              {isChefEquipe && <span className="ml-2 text-orange-600">(3 champs autorisés)</span>}
-            </p>
-          </div>
-        )}
+        <span className="text-xs text-gray-400">
+          {localCartes.length} ligne{localCartes.length > 1 ? 's' : ''}
+          {cartesModifiees.length > 0 && (
+            <span className="ml-2 font-semibold" style={{ color: ORANGE }}>
+              · {cartesModifiees.length} modif. en attente
+            </span>
+          )}
+        </span>
       </div>
     </div>
   );
