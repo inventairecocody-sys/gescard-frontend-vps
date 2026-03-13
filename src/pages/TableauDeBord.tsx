@@ -19,7 +19,7 @@ import Navbar from "../components/Navbar";
 import { useAuth } from "../hooks/useAuth";
 import { StatistiquesService } from "../Services/api/statistiques";
 import type { AgenceStats, PointTemporel, Granularite } from "../Services/api/statistiques";
-import BoutonRapport from "../components/BoutonRapport"; // ✅ Ajout de l'import du bouton rapport
+import BoutonRapport from "../components/BoutonRapport"; // ✅ Import du composant BoutonRapport
 
 // ─── Types ────────────────────────────────────────────────────
 interface GlobalStats {
@@ -1437,5 +1437,5 @@ const TableauDeBord: React.FC = () => {
     </div>
   );
 };
-   
+
 export default TableauDeBord;
