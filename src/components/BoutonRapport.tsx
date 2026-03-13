@@ -1,3 +1,4 @@
+// src/components/BoutonRapport.tsx
 // Composant à ajouter dans TableauDeBord.tsx
 // Importer : import { RapportService } from '../Services/api/rapport';
 // Importer : import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';

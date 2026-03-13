@@ -19,7 +19,8 @@ import Navbar from "../components/Navbar";
 import { useAuth } from "../hooks/useAuth";
 import { StatistiquesService } from "../Services/api/statistiques";
 import type { AgenceStats, PointTemporel, Granularite } from "../Services/api/statistiques";
-import BoutonRapport from "../components/BoutonRapport"; // ✅ Import du composant BoutonRapport
+import BoutonRapport from "../components/BoutonRapport";
+import DateStatistiques from "../components/DateStatistiques";
 
 // ─── Types ────────────────────────────────────────────────────
 interface GlobalStats {
@@ -49,13 +50,41 @@ const BAR_PALETTE   = [C.orange, C.orange2, "#fb923c", "#fdba74", "#fcd34d", "#f
 const COORD_PALETTE = ["#F77F00","#0077B6","#16a34a","#7c3aed","#0d9488","#dc2626","#f59e0b","#6366f1"];
 
 // ─── Utilitaires ──────────────────────────────────────────────
-const fmt     = (n: number) => n.toLocaleString("fr-FR");
-const pct     = (a: number, t: number) => t > 0 ? Math.round((a / t) * 100) : 0;
-const color   = (t: number) => t >= 75 ? "text-green-600" : t >= 50 ? "text-orange-500" : "text-red-500";
-const bgColor = (t: number) => t >= 75 ? "bg-green-50 border-green-200 text-green-700"
-                              : t >= 50 ? "bg-orange-50 border-orange-200 text-orange-700"
-                                        : "bg-red-50 border-red-200 text-red-700";
-const badge   = (t: number) => t >= 75 ? '🏆 Excellent' : t >= 50 ? '📈 En progression' : '⚠️ À améliorer';
+const fmt = (n: number) => n.toLocaleString("fr-FR");
+
+// ✅ NOUVELLE FONCTION : Calcul du taux sans arrondi
+const calculerTaux = (a: number, t: number): number => {
+  if (t === 0) return 0;
+  return (a / t) * 100;
+};
+
+// ✅ NOUVELLE FONCTION : Affichage du taux avec 1 décimale
+const afficherTaux = (taux: number): string => {
+  return taux.toFixed(1).replace('.', ',') + '%';
+};
+
+// ✅ SUPPRIMÉ : pct n'était pas utilisé, on utilise directement calculerTaux
+
+const color = (t: number) => 
+  t >= 90 ? "text-green-600" 
+  : t >= 70 ? "text-emerald-500"
+  : t >= 50 ? "text-orange-500" 
+  : t >= 30 ? "text-yellow-600"
+  : "text-red-600";
+
+const bgColor = (t: number) => 
+  t >= 90 ? "bg-green-50 border-green-200 text-green-700"
+  : t >= 70 ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+  : t >= 50 ? "bg-orange-50 border-orange-200 text-orange-700"
+  : t >= 30 ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+  : "bg-red-50 border-red-200 text-red-700";
+
+const badge = (t: number) => 
+  t >= 90 ? '🏆 Excellent' 
+  : t >= 70 ? '✨ Très bon'
+  : t >= 50 ? '📈 En progression' 
+  : t >= 30 ? '⚠️ À surveiller'
+  : '🔴 Critique';
 
 const fmtPeriode = (p: string, g: Granularite): string => {
   if (!p) return "";
@@ -89,40 +118,47 @@ const KpiCard: React.FC<{
   gradient: string; icon: React.ReactNode; delay?: number;
   tendance?: { direction: string; pourcentage: number | null };
   onClick?: () => void;
-}> = ({ label, value, sub, gradient, icon, delay = 0, tendance, onClick }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, delay }}
-    onClick={onClick}
-    className={`relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br ${gradient} shadow-lg
-      ${onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''}`}
-  >
-    <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-    <div className="absolute -bottom-6 -right-2 w-16 h-16 rounded-full bg-white/10" />
-    <div className="relative z-10">
-      <div className="flex items-start justify-between">
-        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">{icon}</div>
-        {tendance && tendance.pourcentage !== null && (
-          <div className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1">
-            {tendance.direction === "hausse"
-              ? <ArrowTrendingUpIcon className="w-3 h-3 text-white" />
-              : tendance.direction === "baisse"
-              ? <ArrowTrendingDownIcon className="w-3 h-3 text-white" />
-              : <MinusIcon className="w-3 h-3 text-white" />}
-            <span className="text-white text-[10px] font-bold">
-              {tendance.direction !== "stable" ? `${Math.abs(tendance.pourcentage)}%` : "="}
-            </span>
-          </div>
-        )}
+}> = ({ label, value, sub, gradient, icon, delay = 0, tendance, onClick }) => {
+  // Si la valeur est un nombre et que le label contient "Taux", formater avec une décimale
+  const valeurAffichee = typeof value === 'number' && label.toLowerCase().includes('taux') 
+    ? afficherTaux(value)
+    : typeof value === 'number' ? fmt(value) : value;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br ${gradient} shadow-lg
+        ${onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''}`}
+    >
+      <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
+      <div className="absolute -bottom-6 -right-2 w-16 h-16 rounded-full bg-white/10" />
+      <div className="relative z-10">
+        <div className="flex items-start justify-between">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">{icon}</div>
+          {tendance && tendance.pourcentage !== null && (
+            <div className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1">
+              {tendance.direction === "hausse"
+                ? <ArrowTrendingUpIcon className="w-3 h-3 text-white" />
+                : tendance.direction === "baisse"
+                ? <ArrowTrendingDownIcon className="w-3 h-3 text-white" />
+                : <MinusIcon className="w-3 h-3 text-white" />}
+              <span className="text-white text-[10px] font-bold">
+                {tendance.direction !== "stable" ? `${Math.abs(tendance.pourcentage).toFixed(1)}%` : "="}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="text-3xl font-black text-white tracking-tight mb-1">
+          {valeurAffichee}
+        </div>
+        <div className="text-white/90 font-semibold text-sm">{label}</div>
+        {sub && <div className="text-white/70 text-xs mt-0.5">{sub}</div>}
       </div>
-      <div className="text-3xl font-black text-white tracking-tight mb-1">
-        {typeof value === "number" ? fmt(value) : value}
-      </div>
-      <div className="text-white/90 font-semibold text-sm">{label}</div>
-      {sub && <div className="text-white/70 text-xs mt-0.5">{sub}</div>}
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 const SectionHeader: React.FC<{
   icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode;
@@ -159,7 +195,10 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
       <p className="font-bold text-gray-700 mb-1.5 truncate max-w-[200px]">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="flex items-center justify-between gap-3 font-semibold" style={{ color: p.color }}>
-          <span>{p.name}</span><span>{fmt(p.value)}</span>
+          <span>{p.name}</span>
+          <span>{p.name === 'Taux' || p.name.includes('taux') 
+            ? afficherTaux(p.value) 
+            : fmt(p.value)}</span>
         </p>
       ))}
     </div>
@@ -270,7 +309,7 @@ const Classement: React.FC<{
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-gray-700 truncate max-w-[160px]" title={item.nom}>{item.nom}</span>
-            <span className={`text-xs font-bold ml-2 flex-shrink-0 ${color(item.taux)}`}>{item.taux}%</span>
+            <span className={`text-xs font-bold ml-2 flex-shrink-0 ${color(item.taux)}`}>{afficherTaux(item.taux)}</span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-1.5">
             <motion.div initial={{ width: 0 }} animate={{ width: `${item.taux}%` }} transition={{ duration: 0.8, delay: i * 0.05 }}
@@ -457,7 +496,7 @@ const TableauSites: React.FC<{
                         <div className="w-12 bg-gray-100 rounded-full h-1.5">
                           <div className="h-1.5 rounded-full" style={{ width: `${t}%`, background: `linear-gradient(to right,${C.orange},${C.orange2})` }} />
                         </div>
-                        <span className={`font-bold ${color(t)}`}>{t}%</span>
+                        <span className={`font-bold ${color(t)}`}>{afficherTaux(t)}</span>
                       </div>
                     </td>
                   </motion.tr>
@@ -489,14 +528,14 @@ const VueSite: React.FC<{ stats: SiteStats; nomSite: string }> = ({ stats, nomSi
           gradient="from-green-500 to-emerald-600" icon={<CheckCircleIcon className="w-5 h-5 text-white" />} delay={0.05} tendance={tendance} />
         <KpiCard label="Restantes"       value={stats.restants} sub="En attente"
           gradient="from-blue-500 to-sky-600" icon={<ClockIcon className="w-5 h-5 text-white" />} delay={0.1} />
-        <KpiCard label="Taux de retrait" value={`${t}%`} sub="Performance site"
+        <KpiCard label="Taux de retrait" value={t} sub="Performance site"
           gradient="from-violet-500 to-purple-600" icon={<ArrowTrendingUpIcon className="w-5 h-5 text-white" />} delay={0.15} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <SectionHeader icon={<ArrowTrendingUpIcon className="w-4 h-4 text-white" />} title={`Progression — ${nomSite}`} />
           <div className="flex items-end justify-between mb-3">
-            <span className="text-5xl font-black text-[#F77F00]">{t}%</span>
+            <span className="text-5xl font-black text-[#F77F00]">{afficherTaux(t)}</span>
             <div className="text-right text-xs text-gray-400 space-y-0.5">
               <div className="text-green-600 font-semibold">{fmt(stats.retires)} retirées</div>
               <div className="text-blue-600 font-semibold">{fmt(stats.restants)} restantes</div>
@@ -569,7 +608,7 @@ const VueCoordination: React.FC<{
           gradient="from-green-500 to-emerald-600" icon={<CheckCircleIcon className="w-5 h-5 text-white" />} delay={0.05} tendance={tendance} />
         <KpiCard label="Restantes"       value={coord.restants} sub="En attente"
           gradient="from-blue-500 to-sky-600" icon={<ClockIcon className="w-5 h-5 text-white" />} delay={0.1} />
-        <KpiCard label="Taux de retrait" value={`${coord.tauxRetrait}%`} sub="Cette coordination"
+        <KpiCard label="Taux de retrait" value={coord.tauxRetrait} sub="Cette coordination"
           gradient="from-violet-500 to-purple-600" icon={<ArrowTrendingUpIcon className="w-5 h-5 text-white" />} delay={0.15} />
       </div>
 
@@ -577,7 +616,7 @@ const VueCoordination: React.FC<{
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <SectionHeader icon={<ArrowTrendingUpIcon className="w-4 h-4 text-white" />} title="Taux de retrait" sub={coord.coordination} />
           <div className="flex items-end justify-between mb-3">
-            <span className="text-5xl font-black text-[#F77F00]">{coord.tauxRetrait}%</span>
+            <span className="text-5xl font-black text-[#F77F00]">{afficherTaux(coord.tauxRetrait)}</span>
             <div className="text-right text-xs space-y-0.5">
               <div className="text-green-600 font-semibold">{fmt(coord.retires)} retirées</div>
               <div className="text-blue-600 font-semibold">{fmt(coord.restants)} restantes</div>
@@ -671,7 +710,7 @@ const VueCoordination: React.FC<{
         <div style={{ maxHeight: expanded ? 'none' : 360 }} className="overflow-auto rounded-xl border border-gray-100">
           <TableauSites sites={sitesFiltres.sort((a, b) => b.total - a.total)}
             onExport={() => exportCSV(sitesFiltres.map(s => ({
-              Site: s.site, Total: s.total, Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait,
+              Site: s.site, Total: s.total, Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait.toFixed(1).replace('.', ',')
             })), `coord_${coord.coordination}_sites`)} />
         </div>
       </div>
@@ -727,7 +766,7 @@ const VueAgence: React.FC<{
           gradient="from-green-500 to-emerald-600" icon={<CheckCircleIcon className="w-5 h-5 text-white" />} delay={0.05} tendance={tendance} />
         <KpiCard label="Restantes"       value={agence.cartes_restantes} sub="En attente"
           gradient="from-blue-500 to-sky-600" icon={<ClockIcon className="w-5 h-5 text-white" />} delay={0.1} />
-        <KpiCard label="Taux de retrait" value={`${t}%`} sub="Performance agence"
+        <KpiCard label="Taux de retrait" value={t} sub="Performance agence"
           gradient="from-teal-500 to-cyan-600" icon={<ArrowTrendingUpIcon className="w-5 h-5 text-white" />} delay={0.15} />
       </div>
 
@@ -736,7 +775,7 @@ const VueAgence: React.FC<{
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <SectionHeader icon={<ArrowTrendingUpIcon className="w-4 h-4 text-white" />} title="Taux de retrait" sub={agence.agence_nom} />
           <div className="flex items-end justify-between mb-3">
-            <span className="text-5xl font-black text-[#F77F00]">{t}%</span>
+            <span className="text-5xl font-black text-[#F77F00]">{afficherTaux(t)}</span>
             <div className="text-right text-xs space-y-0.5">
               <div className="text-green-600 font-semibold">{fmt(agence.cartes_retirees)} retirées</div>
               <div className="text-blue-600 font-semibold">{fmt(agence.cartes_restantes)} restantes</div>
@@ -829,7 +868,7 @@ const VueAgence: React.FC<{
         {sitesFiltres.length > 0
           ? <TableauSites sites={sitesFiltres.sort((a, b) => b.total - a.total)}
               onExport={() => exportCSV(sitesFiltres.map(s => ({
-                Site: s.site, Total: s.total, Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait,
+                Site: s.site, Total: s.total, Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait.toFixed(1).replace('.', ',')
               })), `agence_${agence.agence_nom}_sites`)} />
           : (
             <div className="text-center py-10 text-gray-400">
@@ -862,7 +901,7 @@ const VueGlobale: React.FC<{
 
   const pieData    = [{ name: "Retirées", value: globales.retires }, { name: "Restantes", value: globales.restants }];
   const topSites   = useMemo(() => [...sitesFiltres].sort((a, b) => b.retires - a.retires).slice(0, topN), [sitesFiltres, topN]);
-  const tauxGlobal = pct(globales.retires, globales.total);
+  const tauxGlobal = calculerTaux(globales.retires, globales.total);
 
   // Classement coordinations par taux
   const classementCoord = useMemo(() =>
@@ -880,7 +919,7 @@ const VueGlobale: React.FC<{
           gradient="from-green-500 to-emerald-600" icon={<CheckCircleIcon className="w-5 h-5 text-white" />} delay={0.05} tendance={tendance} />
         <KpiCard label="Cartes restantes" value={globales.restants} sub="En attente de retrait"
           gradient="from-blue-500 to-sky-600" icon={<ClockIcon className="w-5 h-5 text-white" />} delay={0.1} />
-        <KpiCard label="Taux de retrait"  value={`${tauxGlobal}%`}
+        <KpiCard label="Taux de retrait"  value={tauxGlobal}
           sub={`${allSites.length} sites · ${coordData.length} coordinations`}
           gradient="from-violet-500 to-purple-600" icon={<ArrowTrendingUpIcon className="w-5 h-5 text-white" />} delay={0.15} />
       </div>
@@ -891,7 +930,7 @@ const VueGlobale: React.FC<{
           className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <SectionHeader icon={<ArrowTrendingUpIcon className="w-4 h-4 text-white" />} title="Taux de retrait global" sub="Progression cumulée" />
           <div className="flex items-end justify-between mb-3">
-            <span className="text-5xl font-black text-[#F77F00]">{tauxGlobal}%</span>
+            <span className="text-5xl font-black text-[#F77F00]">{afficherTaux(tauxGlobal)}</span>
             <div className="text-right text-xs space-y-0.5">
               <div className="text-green-600 font-semibold">{fmt(globales.retires)} retirées</div>
               <div className="text-blue-600 font-semibold">{fmt(globales.restants)} restantes</div>
@@ -933,7 +972,7 @@ const VueGlobale: React.FC<{
         className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         <SectionHeader icon={<CalendarDaysIcon className="w-4 h-4 text-white" />}
           title="Évolution des retraits"
-          sub={tendance ? `Tendance : ${tendance.direction === "hausse" ? "📈" : tendance.direction === "baisse" ? "📉" : "➡️"} ${tendance.pourcentage !== null ? Math.abs(tendance.pourcentage) + "% vs période précédente" : "stable"}` : undefined}
+          sub={tendance ? `Tendance : ${tendance.direction === "hausse" ? "📈" : tendance.direction === "baisse" ? "📉" : "➡️"} ${tendance.pourcentage !== null ? Math.abs(tendance.pourcentage).toFixed(1) + "% vs période précédente" : "stable"}` : undefined}
           action={<GranulariteSelector value={granularite} onChange={setGranularite} />}
         />
         <GraphiqueTemporel data={evolution} granularite={granularite} loading={loadingTmp} showCumul />
@@ -982,7 +1021,7 @@ const VueGlobale: React.FC<{
                 className="rounded-xl border border-gray-100 p-4 hover:border-orange-200 hover:bg-orange-50/20 transition-all">
                 <div className="flex items-start justify-between mb-2">
                   <p className="font-bold text-gray-700 text-sm truncate max-w-[140px]" title={c.coordination}>{c.coordination}</p>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${bgColor(c.tauxRetrait)}`}>{c.tauxRetrait}%</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${bgColor(c.tauxRetrait)}`}>{afficherTaux(c.tauxRetrait)}</span>
                 </div>
                 <ProgressBar value={c.tauxRetrait} delay={0.4 + i * 0.05} />
                 <div className="flex justify-between text-xs text-gray-400 mt-2">
@@ -1032,7 +1071,7 @@ const VueGlobale: React.FC<{
         <TableauSites sites={sitesFiltres.sort((a, b) => b.total - a.total)} title="global"
           onExport={() => exportCSV(sitesFiltres.map(s => ({
             Site: s.site, Coordination: s.coordination, Total: s.total,
-            Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait,
+            Retirées: s.retires, Restantes: s.restants, "Taux (%)": s.tauxRetrait.toFixed(1).replace('.', ',')
           })), "global_sites")} />
       </motion.div>
 
@@ -1087,6 +1126,7 @@ const TableauDeBord: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState("");
   const [isOnline,   setIsOnline]   = useState(navigator.onLine);
   const [topN,       setTopN]       = useState(8);
+  const [showDateStats, setShowDateStats] = useState(false);
 
   type NiveauId = 'global' | 'coordination' | 'agence' | 'site';
   const niveaux: Array<{ id: NiveauId; label: string; icon: React.ReactNode }> = useMemo(() => {
@@ -1181,7 +1221,7 @@ const TableauDeBord: React.FC = () => {
     const total    = sitesFiltres.reduce((s, x) => s + x.total,   0);
     const retires  = sitesFiltres.reduce((s, x) => s + x.retires, 0);
     const restants = sitesFiltres.reduce((s, x) => s + x.restants,0);
-    return { total, retires, restants, tauxRetrait: pct(retires, total) };
+    return { total, retires, restants, tauxRetrait: calculerTaux(retires, total) };
   }, [sitesFiltres]);
 
   // Réseau
@@ -1209,7 +1249,7 @@ const TableauDeBord: React.FC = () => {
         total:        x.total,
         retires:      x.retires,
         restants:     x.restants,
-        tauxRetrait:  pct(x.retires, x.total),
+        tauxRetrait:  calculerTaux(x.retires, x.total), // ✅ Plus d'arrondi !
       }));
       setAllSites(adapted);
 
@@ -1230,7 +1270,7 @@ const TableauDeBord: React.FC = () => {
         coordMap[c].restants += si.restants;
         coordMap[c].sites.push(si);
       });
-      Object.values(coordMap).forEach(c => { c.tauxRetrait = pct(c.retires, c.total); });
+      Object.values(coordMap).forEach(c => { c.tauxRetrait = calculerTaux(c.retires, c.total); }); // ✅ Plus d'arrondi !
       setCoordData(Object.values(coordMap).sort((a, b) => b.total - a.total));
       setLastUpdate(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
     } catch (e: any) { setError(e.message || "Erreur de chargement"); }
@@ -1291,7 +1331,15 @@ const TableauDeBord: React.FC = () => {
                   <WifiIcon className="w-3.5 h-3.5" /><span className="font-semibold">En ligne</span>
                 </div>
               )}
-              <BoutonRapport /> {/* ✅ Bouton de téléchargement des rapports ajouté ici */}
+              <button
+                onClick={() => setShowDateStats(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-xl border border-white/30 transition-all"
+                title="Voir les statistiques par jour"
+              >
+                <CalendarDaysIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Journalier</span>
+              </button>
+              <BoutonRapport />
               <button onClick={() => fetchData(true)} disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-xl border border-white/30 transition-all disabled:opacity-60">
                 <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />Actualiser
@@ -1300,6 +1348,14 @@ const TableauDeBord: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal des statistiques journalières */}
+      <DateStatistiques
+        isOpen={showDateStats}
+        onClose={() => setShowDateStats(false)}
+        userRole={user?.role || ''}
+        userCoordination={user?.coordination}
+      />
 
       <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
