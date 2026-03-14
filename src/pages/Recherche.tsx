@@ -6,7 +6,7 @@ import {
   DocumentArrowUpIcon, CheckCircleIcon, XCircleIcon,
   ChevronDownIcon, MapPinIcon, CalendarIcon, UserIcon,
   PhoneIcon, IdentificationIcon, BuildingOfficeIcon,
-  GlobeAltIcon,
+  GlobeAltIcon, ArrowDownTrayIcon, TableCellsIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth }             from '../hooks/useAuth';
 import { usePermissions }      from '../hooks/usePermissions';
@@ -63,10 +63,10 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
 // ─── Page principale ──────────────────────────────────────────
 const Recherche: React.FC = () => {
-  const { user, hasRole }        = useAuth();
-  const { canImport }            = usePermissions();
-  const isChefEquipe             = hasRole(["Chef d'équipe"]);
-  const isOperateur              = hasRole(['Opérateur']);
+  const { user, hasRole }   = useAuth();
+  const { canImport }       = usePermissions();
+  const isChefEquipe        = hasRole(["Chef d'équipe"]);
+  const isOperateur         = hasRole(['Opérateur']);
 
   const [resultats,        setResultats]        = useState<CarteEtendue[]>([]);
   const [loading,          setLoading]          = useState(false);
@@ -168,7 +168,6 @@ const Recherche: React.FC = () => {
   // ── Sauvegarde ──
   const handleSaveModifications = async () => {
     const origMap = new Map(cartesOriginalesRef.current.map(c => [c.id, c]));
-
     const modifiees = resultats.filter((carte) => {
       const orig = origMap.get(carte.id);
       if (!orig) return false;
@@ -183,12 +182,7 @@ const Recherche: React.FC = () => {
         carte.siteRetrait    !== orig.siteRetrait
       );
     });
-
-    if (modifiees.length === 0) {
-      showToast('Aucune modification à sauvegarder', 'error');
-      return;
-    }
-
+    if (modifiees.length === 0) { showToast('Aucune modification à sauvegarder', 'error'); return; }
     try {
       for (const carte of modifiees) {
         const payload = isChefEquipe
@@ -204,12 +198,9 @@ const Recherche: React.FC = () => {
     }
   };
 
-  // ── Export résultats CSV ──
+  // ── Export résultats CSV (côté client) ──
   const handleExportResultatsCSV = async () => {
-    if (resultats.length === 0) {
-      showToast('Aucun résultat à exporter', 'error');
-      return;
-    }
+    if (resultats.length === 0) { showToast('Aucun résultat à exporter', 'error'); return; }
     setExportLoading('csv');
     try {
       const headers = [
@@ -222,18 +213,15 @@ const Recherche: React.FC = () => {
         c.dateNaissance, c.lieuNaissance, c.contact, c.delivrance,
         c.contactRetrait, c.dateDelivrance, c.coordination,
       ]);
-
       const csvContent =
-        '\uFEFF' + // BOM UTF-8
+        '\uFEFF' +
         [headers, ...rows]
           .map(row =>
             row.map(v => {
               const s = (v ?? '').toString().replace(/"/g, '""');
               return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
             }).join(';')
-          )
-          .join('\n');
-
+          ).join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url  = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -251,16 +239,11 @@ const Recherche: React.FC = () => {
     }
   };
 
-  // ── Export résultats Excel (via API) ──
+  // ── Export résultats Excel (via API filtrée) ──
   const handleExportResultatsExcel = async () => {
-    if (resultats.length === 0) {
-      showToast('Aucun résultat à exporter', 'error');
-      return;
-    }
+    if (resultats.length === 0) { showToast('Aucun résultat à exporter', 'error'); return; }
     setExportLoading('excel');
     try {
-      // Construit les query params depuis les critères actifs pour que le backend
-      // renvoie exactement les mêmes données filtrées en Excel
       const params = new URLSearchParams();
       if (criteres.coordination)   params.set('coordination',   criteres.coordination);
       if (criteres.lieuEnrolement) params.set('lieuEnrolement', criteres.lieuEnrolement);
@@ -273,7 +256,6 @@ const Recherche: React.FC = () => {
       if (criteres.delivrance)     params.set('delivrance',     criteres.delivrance);
       if (criteres.dateDelivrance) params.set('dateDelivrance', criteres.dateDelivrance);
       if (criteres.contactRetrait) params.set('contactRetrait', criteres.contactRetrait);
-
       const blob = await ImportExportService.exportCartes('excel', Object.fromEntries(params));
       const url  = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -283,15 +265,57 @@ const Recherche: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast(`Export Excel lancé avec succès`);
+      showToast('Export Excel des résultats téléchargé');
     } catch {
-      // Fallback : export CSV côté client si l'API Excel échoue
-      showToast("Export Excel indisponible, utilise le CSV", 'error');
+      showToast("Export Excel indisponible, utilisez le CSV", 'error');
     } finally {
       setExportLoading(null);
     }
   };
 
+  // ── Export TOUT en CSV (toutes les données) ──
+  const handleExportToutCSV = async () => {
+    setExportLoading('csv');
+    try {
+      const blob = await ImportExportService.exportCartes('csv');
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `export-complet-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('Export CSV complet téléchargé');
+    } catch {
+      showToast("Erreur lors de l'export CSV complet", 'error');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  // ── Export TOUT en Excel (toutes les données) ──
+  const handleExportToutExcel = async () => {
+    setExportLoading('excel');
+    try {
+      const blob = await ImportExportService.exportCartes('excel');
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `export-complet-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('Export Excel complet téléchargé');
+    } catch {
+      showToast("Erreur lors de l'export Excel complet", 'error');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  // ── Import ──
   const handleImport = async (file: File) => {
     setImportLoading(true);
     try {
@@ -355,13 +379,50 @@ const Recherche: React.FC = () => {
               )}
             </p>
           </div>
-          {canImport() && (
-            <button onClick={() => setShowImportModal(true)} disabled={importLoading}
-              className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#E07B00] to-[#F5980A] text-white text-sm font-semibold rounded-xl shadow hover:shadow-md transition-all disabled:opacity-50">
-              {importLoading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <DocumentArrowUpIcon className="w-4 h-4" />}
-              Importer
+
+          {/* ── Boutons Export + Import ── */}
+          <div className="self-start sm:self-auto flex items-center gap-2">
+
+            {/* Export CSV global */}
+            <button
+              onClick={handleExportToutCSV}
+              disabled={exportLoading === 'csv'}
+              title="Exporter toutes les données en CSV"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all disabled:opacity-50"
+            >
+              {exportLoading === 'csv'
+                ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                : <ArrowDownTrayIcon className="w-4 h-4" />}
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
-          )}
+
+            {/* Export Excel global */}
+            <button
+              onClick={handleExportToutExcel}
+              disabled={exportLoading === 'excel'}
+              title="Exporter toutes les données en Excel"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all disabled:opacity-50"
+            >
+              {exportLoading === 'excel'
+                ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                : <TableCellsIcon className="w-4 h-4" />}
+              <span className="hidden sm:inline">Export Excel</span>
+            </button>
+
+            {/* Import */}
+            {canImport() && (
+              <button
+                onClick={() => setShowImportModal(true)}
+                disabled={importLoading}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#E07B00] to-[#F5980A] text-white text-sm font-semibold rounded-xl shadow hover:shadow-md transition-all disabled:opacity-50"
+              >
+                {importLoading
+                  ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  : <DocumentArrowUpIcon className="w-4 h-4" />}
+                <span className="hidden sm:inline">Importer</span>
+              </button>
+            )}
+          </div>
         </motion.div>
 
         {/* ── Panneau filtres ── */}
@@ -562,20 +623,26 @@ const Recherche: React.FC = () => {
         )}
       </div>
 
-      <ImportModal isOpen={showImportModal}
+      <ImportModal
+        isOpen={showImportModal}
         onClose={() => { setShowImportModal(false); setImportMode('standard'); }}
-        onFileSelect={handleImport} isImporting={importLoading}
-        mode={importMode} onModeChange={setImportMode} />
+        onFileSelect={handleImport}
+        isImporting={importLoading}
+        mode={importMode}
+        onModeChange={setImportMode}
+      />
 
       <AnimatePresence>
         {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
 
-      {/* ── Overlay export loading ── */}
+      {/* ── Indicateur export en cours ── */}
       <AnimatePresence>
         {exportLoading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 bg-white border border-gray-200 rounded-2xl shadow-2xl text-sm font-semibold text-gray-700">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 bg-white border border-gray-200 rounded-2xl shadow-2xl text-sm font-semibold text-gray-700"
+          >
             <ArrowPathIcon className="w-4 h-4 animate-spin text-[#E07B00]" />
             Export {exportLoading === 'csv' ? 'CSV' : 'Excel'} en cours…
           </motion.div>
