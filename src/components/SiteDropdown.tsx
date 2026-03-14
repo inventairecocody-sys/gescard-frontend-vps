@@ -52,9 +52,8 @@ const SiteDropdown: React.FC<SiteDropdownProps> = ({
     
     setLoading(true);
     try {
-      // ✅ BUG #1 CORRIGÉ : baseURL axios = '.../api', le chemin ne doit pas re-inclure '/api'
-      // L'ancien chemin '/api/import-export/sites' produisait → /api/api/import-export/sites (404)
-      const response = await api.get('/import-export/sites');
+      // ✅ Endpoint accessible à tous les rôles (pas de restriction import/export)
+      const response = await api.get('/cartes/sites');
       setSites(response.data.sites || []);
       setFilteredSites(response.data.sites || []);
     } catch (error) {

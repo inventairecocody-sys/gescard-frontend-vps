@@ -383,33 +383,37 @@ const Recherche: React.FC = () => {
           {/* ── Boutons Export + Import ── */}
           <div className="self-start sm:self-auto flex items-center gap-2">
 
-            {/* Export CSV global */}
-            <button
-              onClick={handleExportToutCSV}
-              disabled={exportLoading === 'csv'}
-              title="Exporter toutes les données en CSV"
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all disabled:opacity-50"
-            >
-              {exportLoading === 'csv'
-                ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                : <ArrowDownTrayIcon className="w-4 h-4" />}
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
+            {/* Export CSV global — Administrateur et Gestionnaire uniquement */}
+            {canImport() && (
+              <button
+                onClick={handleExportToutCSV}
+                disabled={exportLoading === 'csv'}
+                title="Exporter toutes les données en CSV"
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all disabled:opacity-50"
+              >
+                {exportLoading === 'csv'
+                  ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  : <ArrowDownTrayIcon className="w-4 h-4" />}
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+            )}
 
-            {/* Export Excel global */}
-            <button
-              onClick={handleExportToutExcel}
-              disabled={exportLoading === 'excel'}
-              title="Exporter toutes les données en Excel"
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all disabled:opacity-50"
-            >
-              {exportLoading === 'excel'
-                ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                : <TableCellsIcon className="w-4 h-4" />}
-              <span className="hidden sm:inline">Export Excel</span>
-            </button>
+            {/* Export Excel global — Administrateur et Gestionnaire uniquement */}
+            {canImport() && (
+              <button
+                onClick={handleExportToutExcel}
+                disabled={exportLoading === 'excel'}
+                title="Exporter toutes les données en Excel"
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl shadow-sm hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all disabled:opacity-50"
+              >
+                {exportLoading === 'excel'
+                  ? <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  : <TableCellsIcon className="w-4 h-4" />}
+                <span className="hidden sm:inline">Export Excel</span>
+              </button>
+            )}
 
-            {/* Import */}
+            {/* Import — Administrateur et Gestionnaire uniquement */}
             {canImport() && (
               <button
                 onClick={() => setShowImportModal(true)}
@@ -586,8 +590,8 @@ const Recherche: React.FC = () => {
                 onUpdateCartes={handleUpdateResultats as any}
                 canEdit={!isOperateur}
                 editFields={isChefEquipe ? ['delivrance', 'contactRetrait', 'dateDelivrance'] : undefined}
-                onExportCSV={handleExportResultatsCSV}
-                onExportExcel={handleExportResultatsExcel}
+                onExportCSV={canImport() ? handleExportResultatsCSV : undefined}
+                onExportExcel={canImport() ? handleExportResultatsExcel : undefined}
               />
             </div>
 
