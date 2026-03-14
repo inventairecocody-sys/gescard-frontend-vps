@@ -71,6 +71,7 @@ const Recherche: React.FC = () => {
   const [resultats,        setResultats]        = useState<CarteEtendue[]>([]);
   const [loading,          setLoading]          = useState(false);
   const [importLoading,    setImportLoading]    = useState(false);
+  const [exportLoading,    setExportLoading]    = useState<'csv' | 'excel' | null>(null);
   const [hasModifications, setHasModifications] = useState(false);
   const [totalResultats,   setTotalResultats]   = useState(0);
   const [currentPage,      setCurrentPage]      = useState(1);
@@ -80,7 +81,6 @@ const Recherche: React.FC = () => {
   const [showFilters,      setShowFilters]      = useState(true);
   const [toast,            setToast]            = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Référence aux cartes originales pour détecter les modifications
   const cartesOriginalesRef = useRef<CarteEtendue[]>([]);
 
   const [criteres, setCriteres] = useState<CriteresRecherche>({
@@ -134,7 +134,6 @@ const Recherche: React.FC = () => {
       }));
 
       setResultats(cartesConverties);
-      // ✅ Snapshot des originaux pour comparaison future
       cartesOriginalesRef.current = cartesConverties.map(c => ({ ...c }));
       setTotalResultats(response.pagination.total);
       setCurrentPage(response.pagination.page);
@@ -167,7 +166,6 @@ const Recherche: React.FC = () => {
   };
 
   // ── Sauvegarde ──
-  // ✅ FIX : Comparaison par ID (Map) et non par index pour éviter les faux négatifs
   const handleSaveModifications = async () => {
     const origMap = new Map(cartesOriginalesRef.current.map(c => [c.id, c]));
 
@@ -203,6 +201,94 @@ const Recherche: React.FC = () => {
       showToast(`${modifiees.length} modification(s) enregistrée(s) avec succès`);
     } catch {
       showToast("Erreur lors de l'enregistrement", 'error');
+    }
+  };
+
+  // ── Export résultats CSV ──
+  const handleExportResultatsCSV = async () => {
+    if (resultats.length === 0) {
+      showToast('Aucun résultat à exporter', 'error');
+      return;
+    }
+    setExportLoading('csv');
+    try {
+      const headers = [
+        "LIEU D'ENROLEMENT", "SITE DE RETRAIT", "RANGEMENT", "NOM", "PRENOMS",
+        "DATE DE NAISSANCE", "LIEU NAISSANCE", "CONTACT", "DELIVRANCE",
+        "CONTACT DE RETRAIT", "DATE DE DELIVRANCE", "COORDINATION",
+      ];
+      const rows = resultats.map(c => [
+        c.lieuEnrolement, c.siteRetrait, c.rangement, c.nom, c.prenoms,
+        c.dateNaissance, c.lieuNaissance, c.contact, c.delivrance,
+        c.contactRetrait, c.dateDelivrance, c.coordination,
+      ]);
+
+      const csvContent =
+        '\uFEFF' + // BOM UTF-8
+        [headers, ...rows]
+          .map(row =>
+            row.map(v => {
+              const s = (v ?? '').toString().replace(/"/g, '""');
+              return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+            }).join(';')
+          )
+          .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `resultats-recherche-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast(`${resultats.length} carte(s) exportée(s) en CSV`);
+    } catch {
+      showToast("Erreur lors de l'export CSV", 'error');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  // ── Export résultats Excel (via API) ──
+  const handleExportResultatsExcel = async () => {
+    if (resultats.length === 0) {
+      showToast('Aucun résultat à exporter', 'error');
+      return;
+    }
+    setExportLoading('excel');
+    try {
+      // Construit les query params depuis les critères actifs pour que le backend
+      // renvoie exactement les mêmes données filtrées en Excel
+      const params = new URLSearchParams();
+      if (criteres.coordination)   params.set('coordination',   criteres.coordination);
+      if (criteres.lieuEnrolement) params.set('lieuEnrolement', criteres.lieuEnrolement);
+      if (criteres.siteRetrait)    params.set('siteRetrait',    criteres.siteRetrait);
+      if (criteres.rangement)      params.set('rangement',      criteres.rangement);
+      if (criteres.nom)            params.set('nom',            criteres.nom);
+      if (criteres.prenoms)        params.set('prenoms',        criteres.prenoms);
+      if (criteres.lieuNaissance)  params.set('lieuNaissance',  criteres.lieuNaissance);
+      if (criteres.dateNaissance)  params.set('dateNaissance',  criteres.dateNaissance);
+      if (criteres.delivrance)     params.set('delivrance',     criteres.delivrance);
+      if (criteres.dateDelivrance) params.set('dateDelivrance', criteres.dateDelivrance);
+      if (criteres.contactRetrait) params.set('contactRetrait', criteres.contactRetrait);
+
+      const blob = await ImportExportService.exportCartes('excel', Object.fromEntries(params));
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `resultats-recherche-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast(`Export Excel lancé avec succès`);
+    } catch {
+      // Fallback : export CSV côté client si l'API Excel échoue
+      showToast("Export Excel indisponible, utilise le CSV", 'error');
+    } finally {
+      setExportLoading(null);
     }
   };
 
@@ -439,6 +525,8 @@ const Recherche: React.FC = () => {
                 onUpdateCartes={handleUpdateResultats as any}
                 canEdit={!isOperateur}
                 editFields={isChefEquipe ? ['delivrance', 'contactRetrait', 'dateDelivrance'] : undefined}
+                onExportCSV={handleExportResultatsCSV}
+                onExportExcel={handleExportResultatsExcel}
               />
             </div>
 
@@ -481,6 +569,17 @@ const Recherche: React.FC = () => {
 
       <AnimatePresence>
         {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      </AnimatePresence>
+
+      {/* ── Overlay export loading ── */}
+      <AnimatePresence>
+        {exportLoading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 bg-white border border-gray-200 rounded-2xl shadow-2xl text-sm font-semibold text-gray-700">
+            <ArrowPathIcon className="w-4 h-4 animate-spin text-[#E07B00]" />
+            Export {exportLoading === 'csv' ? 'CSV' : 'Excel'} en cours…
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

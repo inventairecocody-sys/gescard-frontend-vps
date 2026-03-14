@@ -5,6 +5,7 @@ import {
   PencilIcon, CheckCircleIcon, LockClosedIcon, LockOpenIcon,
   DocumentTextIcon, CalendarIcon, PhoneIcon, UserIcon,
   MapPinIcon, BuildingOfficeIcon, CheckIcon,
+  ArrowDownTrayIcon, TableCellsIcon,
 } from '@heroicons/react/24/outline';
 
 const ORANGE = '#E07B00';
@@ -22,6 +23,7 @@ interface TableCartesExcelProps {
 
 const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
   cartes, role, onUpdateCartes, canEdit = true, editFields = [],
+  onExportCSV, onExportExcel,
 }) => {
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue,   setEditValue]   = useState('');
@@ -40,8 +42,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // ✅ FIX : Ne réinitialiser localCartes que lors d'un nouveau jeu de données
-  // (nouvelle recherche), PAS à chaque mise à jour qui écraserait les modifications en cours
   const prevIdsRef = useRef<string>('');
   useEffect(() => {
     const nextIds = cartes.map((c: any) => c.id).join(',');
@@ -62,7 +62,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     return true;
   };
 
-  // Colonnes adaptées selon l'écran
   const colonnesDesktop = [
     { key: 'coordination',   label: 'Coordination',   icon: BuildingOfficeIcon, width: 'min-w-[130px]' },
     { key: 'lieuEnrolement', label: "Lieu Enr.",       icon: MapPinIcon,         width: 'min-w-[130px]' },
@@ -191,7 +190,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     setEditValue('');
   };
 
-  // ✅ FIX : Comptage des modifs par id (pas par index) pour l'affichage
   const cartesModifiees = localCartes.filter((carte) => {
     const orig = cartes.find((c: any) => c.id === carte.id);
     return orig && chefFields.some(f => carte[f] !== orig[f]);
@@ -220,14 +218,44 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </span>
           )}
         </div>
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-          isOperateur  ? 'bg-gray-50 text-gray-500 border-gray-200'
-          : isChefEquipe ? 'bg-amber-50 text-amber-700 border-amber-200'
-          : 'bg-emerald-50 border-emerald-200'
-        }`} style={!isOperateur && !isChefEquipe ? { color: GREEN } : {}}>
-          {isOperateur  ? <><LockClosedIcon className="w-3 h-3 mr-1" />Lecture</> :
-           isChefEquipe ? <><PencilIcon className="w-3 h-3 mr-1" />Limité</> :
-                          <><LockOpenIcon className="w-3 h-3 mr-1" />Édition</>}
+
+        <div className="flex items-center gap-2">
+          {/* ── Boutons Export ── */}
+          {(onExportCSV || onExportExcel) && (
+            <div className="flex items-center gap-1.5">
+              {onExportCSV && (
+                <button
+                  onClick={onExportCSV}
+                  title="Exporter les résultats en CSV"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all text-gray-600"
+                >
+                  <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                  {!isMobile && 'CSV'}
+                </button>
+              )}
+              {onExportExcel && (
+                <button
+                  onClick={onExportExcel}
+                  title="Exporter les résultats en Excel"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all text-gray-600"
+                >
+                  <TableCellsIcon className="w-3.5 h-3.5" />
+                  {!isMobile && 'Excel'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Badge rôle ── */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+            isOperateur  ? 'bg-gray-50 text-gray-500 border-gray-200'
+            : isChefEquipe ? 'bg-amber-50 text-amber-700 border-amber-200'
+            : 'bg-emerald-50 border-emerald-200'
+          }`} style={!isOperateur && !isChefEquipe ? { color: GREEN } : {}}>
+            {isOperateur  ? <><LockClosedIcon className="w-3 h-3 mr-1" />Lecture</> :
+             isChefEquipe ? <><PencilIcon className="w-3 h-3 mr-1" />Limité</> :
+                            <><LockOpenIcon className="w-3 h-3 mr-1" />Édition</>}
+          </div>
         </div>
       </div>
 
