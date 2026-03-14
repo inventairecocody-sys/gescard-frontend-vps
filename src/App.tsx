@@ -95,9 +95,9 @@ const AppContent: React.FC = () => {
           <ProtectedRoute><Recherche /></ProtectedRoute>
         } />
 
-        {/* ── Administrateur + Gestionnaire ── */}
+        {/* ── Administrateur + Gestionnaire + Chef d'équipe ── */}
         <Route path="/tableau-de-bord" element={
-          <ProtectedRoute allowedRoles={['Administrateur', 'Gestionnaire']}>
+          <ProtectedRoute allowedRoles={['Administrateur', 'Gestionnaire', "Chef d'équipe"]}>
             <TableauDeBord />
           </ProtectedRoute>
         } />

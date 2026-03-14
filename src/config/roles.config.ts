@@ -30,6 +30,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   "Chef d'équipe": [
     { page: 'accueil',         actions: ['view'] },
+    { page: 'tableau-de-bord', actions: ['view'], filter: 'coordination' },
     { page: 'recherche',       actions: ['view', 'edit'], fields: ['delivrance', 'CONTACT DE RETRAIT', 'DATE DE DELIVRANCE'] },
     { page: 'profil',          actions: ['view', 'edit'] },
   ],
