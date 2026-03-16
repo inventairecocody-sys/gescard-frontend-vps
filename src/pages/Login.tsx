@@ -82,9 +82,8 @@ const Login: React.FC = () => {
 
     try {
       const response = await AuthService.login(formData);
-      setNotification({ message: 'Connexion réussie ! Redirection en cours...', type: 'success' });
       setAuth(response.token, response.utilisateur.role, response.utilisateur);
-      setTimeout(() => navigate('/home'), 900);
+      navigate('/home');
     } catch (err: any) {
       const status = err.response?.status;
 
