@@ -102,6 +102,10 @@ const MisesAJour: React.FC = () => {
   const [error,           setError]           = useState('');
   const [success,         setSuccess]         = useState('');
   const [confirmDel,      setConfirmDel]      = useState<string | null>(null);
+  const [confirmRestore,  setConfirmRestore]  = useState<string | null>(null);
+  const [confirmClear,    setConfirmClear]    = useState(false);
+  const [restoring,       setRestoring]       = useState(false);
+  const [clearing,        setClearing]        = useState(false);
   const [formData,        setFormData]        = useState({
     version: '', release_notes: '', mandatory: false,
   });
@@ -209,6 +213,36 @@ const MisesAJour: React.FC = () => {
       await charger();
     } catch (e: any) {
       setError(e.response?.data?.message || 'Erreur lors de la suppression.');
+    }
+  };
+
+  // ── Restauration ancienne version ────────────────────────────
+  const handleRestore = async (version: string) => {
+    setRestoring(true);
+    try {
+      await axios.post(`${API_BASE}/api/updates/restore/${version}`, {}, { headers });
+      setSuccess(`Version ${version} restaurée. Les logiciels terrain recevront cette version.`);
+      setConfirmRestore(null);
+      await charger();
+    } catch (e: any) {
+      setError(e.response?.data?.message || 'Erreur lors de la restauration.');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  // ── Vider toutes les versions ─────────────────────────────────
+  const handleClearAll = async () => {
+    setClearing(true);
+    try {
+      await axios.delete(`${API_BASE}/api/updates/clear-all`, { headers });
+      setSuccess('Toutes les versions ont été supprimées.');
+      setConfirmClear(false);
+      await charger();
+    } catch (e: any) {
+      setError(e.response?.data?.message || 'Erreur lors de la suppression.');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -530,7 +564,19 @@ const MisesAJour: React.FC = () => {
           icon={<ClockIcon className="w-4 h-4 text-white" />}
           title="Historique des versions"
           sub={`${historique.length} version(s) archivée(s)`}
+          className=""
         >
+          {historique.length > 0 && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setConfirmClear(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-all"
+              >
+                <TrashIcon className="w-3.5 h-3.5" />
+                Vider tout
+              </button>
+            </div>
+          )}
           {historique.length === 0 ? (
             <div className="text-center py-8">
               <ClockIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
@@ -585,11 +631,21 @@ const MisesAJour: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {!isActive && (
-                          <button onClick={() => setConfirmDel(v.version)}
-                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                            title="Supprimer cette version">
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setConfirmRestore(v.version)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-500 border border-blue-200 rounded-xl hover:bg-blue-50 transition-all"
+                              title="Restaurer cette version comme version active"
+                            >
+                              <ArrowPathIcon className="w-3.5 h-3.5" />
+                              Restaurer
+                            </button>
+                            <button onClick={() => setConfirmDel(v.version)}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                              title="Supprimer cette version">
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </motion.div>
@@ -803,6 +859,78 @@ const MisesAJour: React.FC = () => {
                 <button onClick={() => handleDelete(confirmDel)}
                   className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-semibold text-sm shadow hover:shadow-md hover:from-red-600 transition-all">
                   Supprimer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal confirmation restauration ── */}
+      <AnimatePresence>
+        {confirmRestore && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setConfirmRestore(null)}
+          >
+            <motion.div initial={{ scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ArrowPathIcon className="w-6 h-6 text-blue-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 text-center mb-1">Restaurer la version</h3>
+              <p className="text-gray-500 text-sm text-center mb-2">
+                Définir <strong className="text-gray-800">v{confirmRestore}</strong> comme version active ?
+              </p>
+              <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-center mb-6">
+                Les logiciels terrain recevront cette version à leur prochaine connexion.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmRestore(null)}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm font-medium transition-all">
+                  Annuler
+                </button>
+                <button onClick={() => handleRestore(confirmRestore)} disabled={restoring}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-sky-500 text-white rounded-xl font-semibold text-sm shadow hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {restoring ? <><ArrowPathIcon className="w-4 h-4 animate-spin" /> Restauration…</> : 'Restaurer'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal confirmation vider tout ── */}
+      <AnimatePresence>
+        {confirmClear && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setConfirmClear(false)}
+          >
+            <motion.div initial={{ scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <TrashIcon className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 text-center mb-1">Vider toutes les versions</h3>
+              <p className="text-gray-500 text-sm text-center mb-2">
+                Supprimer <strong className="text-gray-800">toutes les versions</strong> archivées, y compris la version active ?
+              </p>
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-center mb-6">
+                ⚠️ Les logiciels terrain ne recevront plus de mise à jour jusqu'à la prochaine publication.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmClear(false)}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm font-medium transition-all">
+                  Annuler
+                </button>
+                <button onClick={handleClearAll} disabled={clearing}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-semibold text-sm shadow hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {clearing ? <><ArrowPathIcon className="w-4 h-4 animate-spin" /> Suppression…</> : 'Tout supprimer'}
                 </button>
               </div>
             </motion.div>
