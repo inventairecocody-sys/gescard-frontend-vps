@@ -1,10 +1,9 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { TokenService } from '../storage/token';
-import { toast } from 'react-hot-toast';
 import { API_CONFIG } from '../../config/api.config';
+import { handleResponseInterceptor } from '../interceptors/response';
 
-// ✅ Ré-export de BACKEND_URL pour que les autres fichiers puissent l'importer depuis client.ts
 export { BACKEND_URL } from '../../config/api.config';
 
 class ApiClient {
@@ -37,12 +36,14 @@ class ApiClient {
         return config;
       },
       (error: AxiosError) => {
-        console.error('❌ [API] Request Error:', error);
+        if (import.meta.env.DEV) {
+          console.error('❌ [API] Request Error:', error);
+        }
         return Promise.reject(error);
       }
     );
 
-    // INTERCEPTEUR RÉPONSE (CORRIGÉ - ÉVITE LA BOUCLE)
+    // INTERCEPTEUR RÉPONSE — délégué à response.ts
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         if (import.meta.env.DEV) {
@@ -50,56 +51,7 @@ class ApiClient {
         }
         return response;
       },
-      (error: AxiosError) => {
-        // Gestion 401 - Éviter la boucle infinie
-        if (error.response?.status === 401) {
-          const isLoginPage = window.location.pathname.includes('/login');
-
-          if (!isLoginPage) {
-            TokenService.clear();
-            toast.error('Session expirée. Veuillez vous reconnecter.');
-            setTimeout(() => {
-              window.location.replace('/login');
-            }, 100);
-          } else {
-            console.log('👤 Non authentifié, déjà sur login - pas de redirection');
-          }
-        }
-        // Erreur 403 - Accès interdit
-        else if (error.response?.status === 403) {
-          toast.error("Vous n'avez pas les droits pour cette action");
-        }
-        // Erreur 404 - Ressource non trouvée
-        else if (error.response?.status === 404) {
-          toast.error('Ressource non trouvée');
-        }
-        // Erreur 422 - Validation
-        else if (error.response?.status === 422) {
-          const data = error.response.data as { error?: string };
-          toast.error(data.error || 'Erreur de validation');
-        }
-        // Erreur 500 - Serveur
-        else if (error.response?.status === 500) {
-          toast.error('Erreur serveur. Veuillez réessayer plus tard.');
-        }
-        // Timeout
-        else if (error.code === 'ECONNABORTED') {
-          toast.error("Délai d'attente dépassé");
-        }
-        // Erreur réseau
-        else if (!error.response) {
-          toast.error('Impossible de contacter le serveur');
-        }
-
-        if (import.meta.env.DEV) {
-          console.error('❌ [API] Response Error:', {
-            url: error.config?.url,
-            status: error.response?.status,
-            message: error.message,
-          });
-        }
-        return Promise.reject(error);
-      }
+      (error: AxiosError) => handleResponseInterceptor(error) // 👈 tout est géré là-bas
     );
   }
 
@@ -108,7 +60,6 @@ class ApiClient {
   }
 }
 
-// ✅ Export de l'instance par défaut ET nommée
 const api = ApiClient.getInstance().getClient();
 export default api;
 export { api as apiClient };

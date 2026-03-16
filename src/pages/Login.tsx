@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { AuthService } from "../Services/api/auth";
@@ -10,6 +10,31 @@ interface LoginFormData {
   MotDePasse: string;
 }
 
+type NotificationType = 'error' | 'warning' | 'success';
+
+interface Notification {
+  message: string;
+  type: NotificationType;
+}
+
+const notificationStyles: Record<NotificationType, { container: string; badge: string; icon: string }> = {
+  error: {
+    container: 'bg-red-50 border-red-100 text-red-600',
+    badge: 'bg-red-100 text-red-500',
+    icon: '!',
+  },
+  warning: {
+    container: 'bg-amber-50 border-amber-100 text-amber-700',
+    badge: 'bg-amber-100 text-amber-600',
+    icon: '!',
+  },
+  success: {
+    container: 'bg-green-50 border-green-100 text-green-700',
+    badge: 'bg-green-100 text-green-600',
+    icon: '✓',
+  },
+};
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { setAuth } = useAuth();
@@ -17,7 +42,7 @@ const Login: React.FC = () => {
     NomUtilisateur: "",
     MotDePasse: "",
   });
-  const [errorMessage, setErrorMessage] = useState("");
+  const [notification, setNotification] = useState<Notification | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -36,24 +61,59 @@ const Login: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errorMessage) setErrorMessage("");
+    if (notification) setNotification(null);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!formData.NomUtilisateur.trim()) { setErrorMessage("Nom d'utilisateur requis"); return; }
-    if (!formData.MotDePasse)            { setErrorMessage("Mot de passe requis");       return; }
+
+    // Validations frontend — type warning (pas critique, juste un rappel)
+    if (!formData.NomUtilisateur.trim()) {
+      setNotification({ message: "Veuillez saisir votre nom d'utilisateur.", type: 'warning' });
+      return;
+    }
+    if (!formData.MotDePasse) {
+      setNotification({ message: 'Veuillez saisir votre mot de passe.', type: 'warning' });
+      return;
+    }
+
     setIsLoading(true);
-    setErrorMessage("");
+    setNotification(null);
+
     try {
       const response = await AuthService.login(formData);
+      setNotification({ message: 'Connexion réussie ! Redirection en cours...', type: 'success' });
       setAuth(response.token, response.utilisateur.role, response.utilisateur);
-      navigate("/home");
+      setTimeout(() => navigate('/home'), 900);
     } catch (err: any) {
-      if      (err.response?.status === 401) setErrorMessage("Identifiants incorrects");
-      else if (err.response?.status === 403) setErrorMessage("Compte désactivé");
-      else if (err.code === "ERR_NETWORK")   setErrorMessage("Serveur inaccessible");
-      else                                   setErrorMessage("Erreur de connexion");
+      const status = err.response?.status;
+
+      if (status === 401) {
+        setNotification({
+          message: 'Identifiant ou mot de passe incorrect. Veuillez réessayer.',
+          type: 'error',
+        });
+      } else if (status === 403) {
+        setNotification({
+          message: 'Votre compte est désactivé. Contactez un administrateur.',
+          type: 'error',
+        });
+      } else if (status === 429) {
+        setNotification({
+          message: 'Trop de tentatives. Veuillez patienter quelques instants.',
+          type: 'warning',
+        });
+      } else if (err.code === 'ERR_NETWORK') {
+        setNotification({
+          message: 'Serveur inaccessible. Vérifiez votre connexion réseau.',
+          type: 'error',
+        });
+      } else {
+        setNotification({
+          message: 'Une erreur est survenue. Réessayez dans un moment.',
+          type: 'error',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -83,20 +143,17 @@ const Login: React.FC = () => {
         }
         .animate-float-logo { animation: floatLogo 6s ease-in-out infinite; }
 
-        /* Gauche — légère rotation fixe */
         @keyframes floatLeft {
           0%,100% { transform: translateY(0)    rotate(-4deg); }
           50%      { transform: translateY(-20px) rotate(-4deg); }
         }
         .animate-float-left { animation: floatLeft 7s ease-in-out infinite; }
 
-        /* Droite haut — rotation inverse douce */
         @keyframes floatRightTop {
           0%,100% { transform: translateY(0)    rotate(4deg); }
           50%      { transform: translateY(-18px) rotate(4deg); }
         }
 
-        /* Droite bas — rotation inverse + amplitude plus petite */
         @keyframes floatRightBot {
           0%,100% { transform: translateY(0)    rotate(-5deg); }
           50%      { transform: translateY(-14px) rotate(-5deg); }
@@ -124,6 +181,10 @@ const Login: React.FC = () => {
           box-shadow: 0 0 0 4px rgba(247,127,0,.09), 0 2px 8px rgba(247,127,0,.12);
           outline: none;
         }
+        .input-login.input-warning {
+          border-color: #F59E0B;
+          box-shadow: 0 0 0 3px rgba(245,158,11,.10);
+        }
 
         .btn-login {
           background: linear-gradient(135deg, #F77F00 0%, #FF9E40 50%, #FFBF69 100%);
@@ -139,6 +200,10 @@ const Login: React.FC = () => {
         .btn-login:active:not(:disabled) {
           transform: translateY(0);
           box-shadow: 0 4px 15px rgba(247,127,0,.3);
+        }
+        .btn-login:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
       `}</style>
 
@@ -387,7 +452,9 @@ const Login: React.FC = () => {
                       value={formData.NomUtilisateur}
                       onChange={handleChange}
                       placeholder="Votre identifiant"
-                      className="input-login w-full pl-11 pr-4 py-3.5 rounded-xl text-gray-800 text-sm font-medium placeholder:text-gray-300 placeholder:font-normal"
+                      className={`input-login w-full pl-11 pr-4 py-3.5 rounded-xl text-gray-800 text-sm font-medium placeholder:text-gray-300 placeholder:font-normal ${
+                        notification?.type === 'warning' && !formData.NomUtilisateur.trim() ? 'input-warning' : ''
+                      }`}
                       disabled={isLoading}
                       autoComplete="username"
                     />
@@ -406,7 +473,9 @@ const Login: React.FC = () => {
                       value={formData.MotDePasse}
                       onChange={handleChange}
                       placeholder="••••••••"
-                      className="input-login w-full pl-11 pr-12 py-3.5 rounded-xl text-gray-800 text-sm font-medium placeholder:text-gray-300 placeholder:font-normal"
+                      className={`input-login w-full pl-11 pr-12 py-3.5 rounded-xl text-gray-800 text-sm font-medium placeholder:text-gray-300 placeholder:font-normal ${
+                        notification?.type === 'warning' && !formData.MotDePasse ? 'input-warning' : ''
+                      }`}
                       disabled={isLoading}
                       autoComplete="current-password"
                     />
@@ -420,22 +489,30 @@ const Login: React.FC = () => {
                   </div>
                 </motion.div>
 
-                {errorMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className="flex items-center gap-2.5 bg-red-50 border border-red-100 text-red-500 px-4 py-3 rounded-xl text-sm"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 text-xs font-bold">!</span>
-                    <span className="font-medium">{errorMessage}</span>
-                  </motion.div>
-                )}
+                {/* Bloc notification — erreur / warning / succès */}
+                <AnimatePresence mode="wait">
+                  {notification && (
+                    <motion.div
+                      key={notification.message}
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm border ${notificationStyles[notification.type].container}`}
+                    >
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${notificationStyles[notification.type].badge}`}>
+                        {notificationStyles[notification.type].icon}
+                      </span>
+                      <span className="font-medium">{notification.message}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="btn-login w-full py-3.5 text-white font-semibold rounded-xl flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-login w-full py-3.5 text-white font-semibold rounded-xl flex items-center justify-center gap-2.5"
                   >
                     {isLoading ? (
                       <>

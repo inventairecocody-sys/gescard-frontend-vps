@@ -2,60 +2,110 @@ import { AxiosError } from 'axios';
 import { toast } from 'react-hot-toast';
 import { TokenService } from '../storage/token';
 
+// Évite les toasts dupliqués pour le même type d'erreur
+const activeToasts = new Set<string>();
+
+function showUniqueToast(id: string, fn: () => void) {
+  if (activeToasts.has(id)) return;
+  activeToasts.add(id);
+  fn();
+  setTimeout(() => activeToasts.delete(id), 4000);
+}
+
 export async function handleResponseInterceptor(error: AxiosError): Promise<never> {
   const originalRequest = error.config;
-  
-  // Gestion des erreurs 401 (Non authentifié) - CORRIGÉ
-  if (error.response?.status === 401 && originalRequest) {
+  const status = error.response?.status;
+
+  // 401 — Session expirée
+  if (status === 401 && originalRequest) {
     const isLoginPage = window.location.pathname.includes('/login');
-    
+
     if (!isLoginPage) {
       TokenService.clear();
-      toast.error('Session expirée. Veuillez vous reconnecter.');
-      
-      // Utiliser replace au lieu de href pour éviter la boucle
-      setTimeout(() => {
-        window.location.replace('/login');
-      }, 100);
-    } else {
-      console.log('👤 Non authentifié, déjà sur login - pas de redirection');
+      showUniqueToast('session-expired', () =>
+        toast('Session expirée. Veuillez vous reconnecter.', {
+          icon: '🔒',
+          duration: 4000,
+          style: { background: '#FEF3C7', color: '#92400E', border: '1px solid #F59E0B' },
+        })
+      );
+      setTimeout(() => window.location.replace('/login'), 1500);
     }
   }
-  
-  // Gestion des erreurs 403 (Accès interdit)
-  if (error.response?.status === 403) {
-    toast.error("Vous n'avez pas les droits pour effectuer cette action");
+
+  // 403 — Accès interdit
+  if (status === 403) {
+    showUniqueToast('forbidden', () =>
+      toast("Accès refusé. Vous n'avez pas les droits nécessaires.", {
+        icon: '🚫',
+        duration: 5000,
+        style: { background: '#FEF2F2', color: '#991B1B', border: '1px solid #FCA5A5' },
+      })
+    );
   }
-  
-  // Gestion des erreurs 422 (Validation)
-  if (error.response?.status === 422) {
-    const data = error.response.data as { error?: string };
-    if (data.error) {
-      toast.error(data.error);
-    } else {
-      toast.error('Erreur de validation des données');
-    }
-  }
-  
-  // Gestion des erreurs 500 (Serveur)
-  if (error.response?.status === 500) {
-    toast.error('Erreur serveur. Veuillez réessayer plus tard.');
-  }
-  
-  // Gestion des erreurs réseau
-  if (!error.response) {
-    toast.error('Impossible de contacter le serveur. Vérifiez votre connexion.');
-  }
-  
-  // Log en développement
-  if (import.meta.env.DEV) {
-    console.error('❌ [API] Response Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.message,
-      data: error.response?.data
+
+  // 404 — Ressource introuvable
+  if (status === 404) {
+    toast("La ressource demandée est introuvable.", {
+      icon: '🔍',
+      duration: 4000,
+      style: { background: '#F0F9FF', color: '#075985', border: '1px solid #7DD3FC' },
     });
   }
-  
+
+  // 422 — Erreur de validation
+  if (status === 422) {
+    const data = error.response?.data as { error?: string; message?: string };
+    const message = data?.error || data?.message || 'Certaines informations saisies sont invalides.';
+    toast(message, {
+      icon: '⚠️',
+      duration: 5000,
+      style: { background: '#FFFBEB', color: '#92400E', border: '1px solid #FCD34D' },
+    });
+  }
+
+  // 429 — Trop de requêtes
+  if (status === 429) {
+    showUniqueToast('rate-limit', () =>
+      toast('Trop de tentatives. Veuillez patienter quelques instants.', {
+        icon: '⏳',
+        duration: 6000,
+        style: { background: '#F5F3FF', color: '#5B21B6', border: '1px solid #C4B5FD' },
+      })
+    );
+  }
+
+  // 500 — Erreur serveur
+  if (status === 500) {
+    showUniqueToast('server-error', () =>
+      toast('Une erreur inattendue est survenue. Réessayez dans un moment.', {
+        icon: '🛠️',
+        duration: 6000,
+        style: { background: '#FEF2F2', color: '#991B1B', border: '1px solid #FCA5A5' },
+      })
+    );
+  }
+
+  // Pas de réponse — Erreur réseau
+  if (!error.response) {
+    showUniqueToast('network-error', () =>
+      toast('Connexion impossible. Vérifiez votre réseau et réessayez.', {
+        icon: '📡',
+        duration: 6000,
+        style: { background: '#F9FAFB', color: '#374151', border: '1px solid #D1D5DB' },
+      })
+    );
+  }
+
+  // Log en développement uniquement
+  if (import.meta.env.DEV) {
+    console.error('❌ [API] Erreur:', {
+      url: error.config?.url,
+      status,
+      message: error.message,
+      data: error.response?.data,
+    });
+  }
+
   return Promise.reject(error);
 }
