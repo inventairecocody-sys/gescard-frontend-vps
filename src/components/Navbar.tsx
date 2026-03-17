@@ -114,7 +114,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
               <Link to="/accueil" className="flex items-center gap-2.5">
                 <div className="relative flex-shrink-0">
                   <img
-                    src="/logo-placeholder.jpeg"
+                    src="/logo-placeholder.png"
                     alt="GESCARD"
                     className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-contain shadow-md border border-orange-100"
                   />

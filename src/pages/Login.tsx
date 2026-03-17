@@ -314,7 +314,7 @@ const Login: React.FC = () => {
         <div className="absolute left-[3.5%] top-1/2 -translate-y-1/2 z-10 hidden xl:block">
           <div className="animate-float-left relative">
             <img
-              src="/decorative-image.jpeg"
+              src="/logo-placeholder.png"
               alt="Illustration GESCARD"
               className="w-56 h-56 object-cover rounded-[30px]"
               style={{ boxShadow: "0 24px 60px rgba(0,0,0,.12), 0 0 0 2px rgba(74,222,128,.16)" }}
@@ -328,7 +328,7 @@ const Login: React.FC = () => {
         <div className="absolute right-[3.5%] top-[10%] z-10 hidden xl:block">
           <div className="relative" style={{ animation: "floatRightTop 8s ease-in-out 1.5s infinite" }}>
             <img
-              src="/decorative-image.jpeg"
+              src="/logo-placeholder.png"
               alt="Illustration GESCARD"
               className="w-48 h-48 object-cover rounded-[26px]"
               style={{
@@ -402,7 +402,7 @@ const Login: React.FC = () => {
                   }}
                 >
                   <img
-                    src="/logo-placeholder.jpeg"
+                    src="/logo-placeholder.png"
                     alt="Logo GESCARD"
                     style={{ width: "80%", height: "80%", objectFit: "contain" }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
