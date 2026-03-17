@@ -75,10 +75,14 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     navigate('/login');
   };
 
-  // Sous-menu Administration
+  // ============================================
+  // SOUS-MENU ADMINISTRATION (MODIFIÉ ICI)
+  // ============================================
   const adminSubItems = [
     ...(canView('comptes')      ? [{ path: '/administration/comptes',    label: 'Comptes',      icon: UsersIcon }] : []),
     ...(canView('mises-a-jour') ? [{ path: '/administration/mises-a-jour', label: 'Mises à jour', icon: ArrowDownTrayIcon }] : []),
+    // ✅ AJOUT : Journal & Backups (toujours visible pour admin)
+    { path: '/administration/journal', label: 'Journal & Backups', icon: DocumentTextIcon },
   ];
 
   const showAdminMenu = adminSubItems.length > 0;
@@ -88,7 +92,6 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
     { path: '/accueil',         label: 'Accueil',        labelShort: 'Accueil',  icon: HomeIcon,           permission: true },
     { path: '/tableau-de-bord', label: 'Tableau de bord', labelShort: 'Stats',   icon: ChartBarIcon,       permission: canView('tableau-de-bord') },
     { path: '/recherche',       label: 'Recherche',      labelShort: 'Rech.',    icon: MagnifyingGlassIcon, permission: canView('recherche') },
-    { path: '/journal',         label: 'Journal',        labelShort: 'Journal',  icon: DocumentTextIcon,   permission: canView('journal') },
     { path: '/profil',          label: 'Profil',         labelShort: 'Profil',   icon: UserIcon,           permission: canView('profil') },
   ].filter(item => item.permission);
 
@@ -184,7 +187,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.95 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute top-full mt-2 left-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+                        className="absolute top-full mt-2 left-0 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
                       >
                         {adminSubItems.map((sub) => {
                           const SubIcon = sub.icon;
@@ -254,7 +257,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
                 <button className="p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:bg-gray-200">
                   <ChevronDownIcon className="w-4 h-4" />
                 </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   {navItems.slice(3).map((item) => {
                     const Icon = item.icon;
                     return (

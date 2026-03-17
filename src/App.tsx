@@ -10,10 +10,10 @@ import Login            from "./pages/Login";
 import Accueil          from "./pages/Accueil";
 import TableauDeBord    from "./pages/TableauDeBord";
 import Recherche        from "./pages/Recherche";
-import Journal          from "./pages/Journal";
 import Profil           from "./pages/Profil";
 import Comptes          from "./pages/administration/Comptes";
 import MisesAjour       from "./pages/administration/MisesAjour";
+import Journal          from "./pages/administration/Journal"; // ← Import depuis le nouveau chemin
 
 // ============================================================
 // ROUTE PROTÉGÉE
@@ -102,13 +102,6 @@ const AppContent: React.FC = () => {
           </ProtectedRoute>
         } />
 
-        {/* ── Administrateur uniquement ── */}
-        <Route path="/journal" element={
-          <ProtectedRoute allowedRoles={['Administrateur']}>
-            <Journal />
-          </ProtectedRoute>
-        } />
-
         {/* ── Administration : Comptes ── */}
         <Route path="/administration/comptes" element={
           <ProtectedRoute allowedRoles={['Administrateur']}>
@@ -123,12 +116,22 @@ const AppContent: React.FC = () => {
           </ProtectedRoute>
         } />
 
+        {/* ── Administration : Journal & Backups (NOUVEAU) ── */}
+        <Route path="/administration/journal" element={
+          <ProtectedRoute allowedRoles={['Administrateur']}>
+            <Journal />
+          </ProtectedRoute>
+        } />
+
         {/* ── Redirection /administration → premier sous-menu accessible ── */}
         <Route path="/administration" element={
           <ProtectedRoute allowedRoles={['Administrateur']}>
             <Navigate to="/administration/comptes" replace />
           </ProtectedRoute>
         } />
+
+        {/* ── ANCIENNE ROUTE JOURNAL - Redirection pour compatibilité ── */}
+        <Route path="/journal" element={<Navigate to="/administration/journal" replace />} />
 
         {/* ── Anciennes routes → redirect pour compatibilité ── */}
         <Route path="/home"            element={<Navigate to="/accueil"                  replace />} />
