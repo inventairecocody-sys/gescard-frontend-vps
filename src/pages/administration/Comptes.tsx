@@ -345,38 +345,58 @@ const UserForm: React.FC<{
             <LinkIcon className="w-3.5 h-3.5" />
             Sites associés {!isEdit && <span className="text-red-500">*</span>}
           </p>
-          {sites.length === 0 ? (
-            <p className="text-sm text-gray-400 italic">Aucun site disponible — créez d'abord des sites</p>
+          {!selectedCoord ? (
+            <div className="flex items-center gap-2 px-3 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm text-gray-400 italic">
+              <MapPinIcon className="w-4 h-4 flex-shrink-0" />
+              Sélectionnez d'abord une coordination pour voir les sites disponibles
+            </div>
+          ) : sitesFiltres.length === 0 ? (
+            <p className="text-sm text-gray-400 italic px-1">Aucun site disponible pour cette coordination</p>
           ) : (
-            <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
-              {Object.entries(sitesByCoord).map(([coordNom, coordSites]) => (
-                <div key={coordNom}>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{coordNom}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {coordSites.map(site => {
-                      const selected = selectedSiteIds.includes(site.id);
-                      const isPrincipal = selectedSiteIds[0] === site.id && selected;
-                      return (
-                        <button key={site.id} type="button" onClick={() => toggleSite(site.id)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            selected
-                              ? 'bg-[#F77F00] text-white border-[#F77F00] shadow-sm'
-                              : 'bg-white text-gray-600 border-gray-200 hover:border-[#F77F00]/50 hover:text-[#F77F00]'
-                          }`}>
-                          <BuildingStorefrontIcon className="w-3 h-3" />
-                          {site.id}
-                          {isPrincipal && <span className="ml-0.5 text-[10px] bg-white/30 px-1 rounded">★</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="max-h-52 overflow-y-auto divide-y divide-gray-100">
+                {sitesFiltres.map((site, idx) => {
+                  const checked = selectedSiteIds.includes(site.id);
+                  const isPrincipal = selectedSiteIds[0] === site.id && checked;
+                  return (
+                    <label key={site.id}
+                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                        checked ? 'bg-orange-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                      } hover:bg-orange-50/60`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSite(site.id)}
+                        className="w-4 h-4 rounded border-gray-300 text-[#F77F00] focus:ring-[#F77F00]/30 cursor-pointer"
+                      />
+                      <BuildingStorefrontIcon className={`w-4 h-4 flex-shrink-0 ${checked ? 'text-[#F77F00]' : 'text-gray-400'}`} />
+                      <span className={`text-sm flex-1 ${checked ? 'font-semibold text-[#F77F00]' : 'text-gray-700'}`}>
+                        {site.nom}
+                      </span>
+                      {isPrincipal && (
+                        <span className="text-[10px] font-bold bg-[#F77F00] text-white px-1.5 py-0.5 rounded-full">
+                          ★ Principal
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{sitesFiltres.length} site(s) disponible(s)</span>
+                {selectedSiteIds.length > 0 && (
+                  <span className="text-xs font-semibold text-[#F77F00]">
+                    {selectedSiteIds.length} sélectionné(s)
+                  </span>
+                )}
+              </div>
             </div>
           )}
-          {selectedSiteIds.length > 0 && (
-            <p className="text-xs text-[#F77F00] mt-2 font-medium">
-              {selectedSiteIds.length} site(s) · ★ = site principal ({selectedSiteIds[0]})
+          {selectedCoord && selectedSiteIds.length > 0 && (
+            <p className="text-xs text-[#F77F00] mt-2 font-medium flex items-center gap-1">
+              <span>★ Site principal :</span>
+              <span className="font-bold">{sites.find(s => s.id === selectedSiteIds[0])?.nom || selectedSiteIds[0]}</span>
+              <span className="text-gray-400 font-normal">(premier sélectionné)</span>
             </p>
           )}
         </div>
