@@ -345,7 +345,7 @@ const Login: React.FC = () => {
         <div className="absolute right-[5%] bottom-[8%] z-10 hidden xl:block">
           <div className="relative" style={{ animation: "floatRightBot 7s ease-in-out 3s infinite" }}>
             <img
-              src="/logo-placeholder.jpeg"
+              src="/logo-placeholder.png"
               alt="Logo GESCARD"
               className="w-32 h-32 object-contain rounded-[22px] bg-white"
               style={{
