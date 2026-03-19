@@ -848,8 +848,9 @@ const Comptes: React.FC = () => {
         try {
           if (u.actif) await UtilisateursService.deleteUtilisateur(u.id);
           else         await UtilisateursService.activateUtilisateur(u.id);
+          // Mise à jour locale du statut (évite un refetch qui réintroduirait les supprimés)
+          setUtilisateurs(prev => prev.map(x => x.id === u.id ? { ...x, actif: !u.actif } : x));
           showSuccess(`Utilisateur ${u.actif ? 'désactivé' : 'réactivé'} avec succès`);
-          fetchUtilisateurs();
         } catch (e: any) { showError(e.response?.data?.message || 'Erreur'); }
       }
     );
@@ -869,14 +870,15 @@ const Comptes: React.FC = () => {
 
   const handleDeleteUser = (u: Utilisateur) => {
     askConfirm(
-      'Supprimer le compte utilisateur',
-      `Supprimer définitivement le compte "${u.nomComplet || u.nomUtilisateur}" ? Cette action est irréversible.`,
+      'Supprimer définitivement le compte',
+      `Supprimer définitivement le compte "${u.nomComplet || u.nomUtilisateur}" ? Cette action est irréversible et efface toutes les données liées.`,
       'danger',
       async () => {
         try {
-          await UtilisateursService.deleteUtilisateur(u.id);
-          showSuccess(`Compte de ${u.nomComplet || u.nomUtilisateur} supprimé`);
-          fetchUtilisateurs();
+          await UtilisateursService.purgeUtilisateur(u.id);
+          // Retrait immédiat de la liste locale
+          setUtilisateurs(prev => prev.filter(x => x.id !== u.id));
+          showSuccess(`Compte de ${u.nomComplet || u.nomUtilisateur} supprimé définitivement`);
         } catch (e: any) {
           showError(e.response?.data?.message || 'Erreur lors de la suppression');
         }

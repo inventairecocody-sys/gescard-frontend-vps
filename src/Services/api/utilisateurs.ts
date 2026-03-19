@@ -96,6 +96,11 @@ export const UtilisateursService = {
     await apiClient.delete(`/utilisateurs/${id}`);
   },
 
+  /** Suppression définitive (irréversible) — Administrateur uniquement */
+  async purgeUtilisateur(id: number): Promise<void> {
+    await apiClient.delete(`/utilisateurs/${id}/purge`);
+  },
+
   async activateUtilisateur(id: number): Promise<void> {
     await apiClient.post(`/utilisateurs/${id}/activate`);
   }
