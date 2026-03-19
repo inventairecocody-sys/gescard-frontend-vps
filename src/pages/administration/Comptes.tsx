@@ -339,7 +339,7 @@ const UserForm: React.FC<{
       </div>
 
       {/* Sites liés */}
-      {formData.role !== 'Administrateur' && (
+      {(
         <div className="border-t border-gray-100 pt-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
             <LinkIcon className="w-3.5 h-3.5" />
@@ -867,6 +867,23 @@ const Comptes: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleDeleteUser = (u: Utilisateur) => {
+    askConfirm(
+      'Supprimer le compte utilisateur',
+      `Supprimer définitivement le compte "${u.nomComplet || u.nomUtilisateur}" ? Cette action est irréversible.`,
+      'danger',
+      async () => {
+        try {
+          await UtilisateursService.deleteUtilisateur(u.id);
+          showSuccess(`Compte de ${u.nomComplet || u.nomUtilisateur} supprimé`);
+          fetchUtilisateurs();
+        } catch (e: any) {
+          showError(e.response?.data?.message || 'Erreur lors de la suppression');
+        }
+      }
+    );
+  };
+
   // ─────────────────────────────────────────────────────────
   // COORDINATIONS
   // ─────────────────────────────────────────────────────────
@@ -1344,9 +1361,13 @@ const Comptes: React.FC = () => {
                                   <PencilIcon className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleToggleStatus(u)}
-                                  className={`p-1.5 rounded-lg transition-all ${u.actif ? 'text-red-500 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                  className={`p-1.5 rounded-lg transition-all ${u.actif ? 'text-amber-500 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
                                   title={u.actif ? 'Désactiver' : 'Réactiver'}>
                                   {u.actif ? <XCircleIcon className="w-4 h-4" /> : <CheckCircleIcon className="w-4 h-4" />}
+                                </button>
+                                <button onClick={() => handleDeleteUser(u)}
+                                  className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-all" title="Supprimer">
+                                  <TrashIcon className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1376,8 +1397,11 @@ const Comptes: React.FC = () => {
                               <PencilIcon className="w-4 h-4" />
                             </button>
                             <button onClick={() => handleToggleStatus(u)}
-                              className={`p-1.5 rounded-lg ${u.actif ? 'text-red-500 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+                              className={`p-1.5 rounded-lg ${u.actif ? 'text-amber-500 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}>
                               {u.actif ? <XCircleIcon className="w-4 h-4" /> : <CheckCircleIcon className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => handleDeleteUser(u)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg">
+                              <TrashIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
