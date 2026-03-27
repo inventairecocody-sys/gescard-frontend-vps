@@ -99,8 +99,6 @@ const colonnesTablet = [
 // ─── Card View Mobile ─────────────────────────────────────────────────────────
 interface CardViewProps {
   cartes: any[];
-  isOperateur: boolean;
-  isChefEquipe: boolean;
   isFieldEditable: (field: string) => boolean;
   onDelivranceToggle: (rowIndex: number) => void;
   onDelivranceEdit: (rowIndex: number) => void;
@@ -114,9 +112,17 @@ interface CardViewProps {
 }
 
 const CardView: React.FC<CardViewProps> = ({
-  cartes, isOperateur, isChefEquipe, isFieldEditable,
-  onDelivranceToggle, onDelivranceEdit, onCellEdit,
-  editingCell, editValue, setEditValue, handleSaveEdit, handleDelivranceSave, setEditingCell,
+  cartes,
+  isFieldEditable,
+  onDelivranceToggle,
+  onDelivranceEdit,
+  onCellEdit,
+  editingCell,
+  editValue,
+  setEditValue,
+  handleSaveEdit,
+  handleDelivranceSave,
+  setEditingCell,
 }) => {
   const fields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
     { key: 'coordination',   label: 'Coordination',     icon: BuildingOfficeIcon },
@@ -204,10 +210,12 @@ const CardView: React.FC<CardViewProps> = ({
                         value={editValue}
                         autoFocus
                         onChange={e => setEditValue(e.target.value)}
-                        onBlur={handleSaveEdit}
+                        onBlur={key === 'delivrance' ? handleDelivranceSave : handleSaveEdit}
                         onKeyDown={e => {
-                          if (e.key === 'Enter') handleSaveEdit();
-                          else if (e.key === 'Escape') setEditingCell(null);
+                          if (e.key === 'Enter') {
+                            if (key === 'delivrance') handleDelivranceSave();
+                            else handleSaveEdit();
+                          } else if (e.key === 'Escape') setEditingCell(null);
                         }}
                         className="w-full px-2 py-1 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none"
                         style={{ borderColor: ORANGE }}
@@ -483,8 +491,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
       {viewMode === 'card' ? (
         <CardView
           cartes={localCartes}
-          isOperateur={isOperateur}
-          isChefEquipe={isChefEquipe}
           isFieldEditable={isFieldEditable}
           onDelivranceToggle={handleDelivranceToggle}
           onDelivranceEdit={handleDelivranceEdit}
