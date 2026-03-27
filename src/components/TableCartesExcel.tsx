@@ -124,16 +124,17 @@ const CardView: React.FC<CardViewProps> = ({
   handleDelivranceSave,
   setEditingCell,
 }) => {
+  // TOUS les champs importants pour la fiche mobile
   const fields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
-    { key: 'coordination',   label: 'Coordination',     icon: BuildingOfficeIcon },
-    { key: 'lieuEnrolement', label: "Lieu d'enrôlement", icon: MapPinIcon },
-    { key: 'siteRetrait',    label: 'Site de retrait',  icon: MapPinIcon },
-    { key: 'rangement',      label: 'Rangement',        icon: DocumentTextIcon },
-    { key: 'lieuNaissance',  label: 'Lieu de naissance', icon: MapPinIcon },
-    { key: 'dateNaissance',  label: 'Date de naissance', icon: CalendarIcon, isDate: true },
-    { key: 'contact',        label: 'Contact',          icon: PhoneIcon },
-    { key: 'contactRetrait', label: 'Contact retrait',  icon: PhoneIcon },
-    { key: 'dateDelivrance', label: 'Date de retrait',  icon: CalendarIcon, isDate: true },
+    { key: 'coordination',   label: 'Coordination',        icon: BuildingOfficeIcon },
+    { key: 'lieuEnrolement', label: "Lieu d'enrôlement",   icon: MapPinIcon },
+    { key: 'siteRetrait',    label: 'Site de retrait',     icon: MapPinIcon },
+    { key: 'rangement',      label: 'Rangement',           icon: DocumentTextIcon },
+    { key: 'lieuNaissance',  label: 'Lieu de naissance',   icon: MapPinIcon },
+    { key: 'dateNaissance',  label: 'Date de naissance',   icon: CalendarIcon, isDate: true },
+    { key: 'contact',        label: 'Contact',             icon: PhoneIcon },
+    { key: 'contactRetrait', label: 'Contact retrait',     icon: PhoneIcon },
+    { key: 'dateDelivrance', label: 'Date de retrait',     icon: CalendarIcon, isDate: true },
   ];
 
   return (
@@ -153,36 +154,37 @@ const CardView: React.FC<CardViewProps> = ({
               delivered ? 'bg-emerald-50/40' : rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
             }`}
           >
-            {/* ── En-tête carte : Nom + Badge délivrance ── */}
-            <div className="flex items-start justify-between gap-2 mb-3">
+            {/* ── En-tête carte : Nom + Prénom en grand + Badge délivrance ── */}
+            <div className="flex items-start justify-between gap-2 mb-4">
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-base leading-tight truncate">
+                <p className="font-bold text-gray-900 text-lg leading-tight truncate">
                   {getCellValue(carte, 'nom')}
                 </p>
                 <p className="text-sm text-gray-500 truncate mt-0.5">
                   {getCellValue(carte, 'prenoms')}
                 </p>
               </div>
-              {/* Badge délivrance */}
+              {/* Badge délivrance coloré avec toggle */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => onDelivranceToggle(rowIndex)}
                   disabled={!delivranceEditable}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                     delivered
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-400'
+                      : 'bg-gray-50 border-gray-200 text-gray-500'
                   } ${delivranceEditable ? 'cursor-pointer hover:shadow-sm' : 'cursor-default opacity-70'}`}
                 >
-                  <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                  <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
                     delivered ? 'border-emerald-500' : 'border-gray-300'
                   }`} style={delivered ? { backgroundColor: GREEN, borderColor: GREEN } : {}}>
-                    {delivered && <CheckIcon className="w-2 h-2 text-white" />}
+                    {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
                   </div>
                   <span
                     onClick={(e) => {
                       if (delivranceEditable) { e.stopPropagation(); onDelivranceEdit(rowIndex); }
                     }}
+                    className={delivered ? 'font-semibold' : ''}
                   >
                     {delivranceVal}
                   </span>
@@ -190,8 +192,8 @@ const CardView: React.FC<CardViewProps> = ({
               </div>
             </div>
 
-            {/* ── Grille des champs ── */}
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+            {/* ── Grille des champs en 2 colonnes ── */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {fields.map(({ key, label, icon: Icon, isDate }) => {
                 const val = getCellValue(carte, key);
                 const displayVal = isDate ? formatDate(val) : val;
@@ -200,8 +202,8 @@ const CardView: React.FC<CardViewProps> = ({
 
                 return (
                   <div key={key} className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1 mb-0.5">
-                      <Icon className="w-3 h-3 flex-shrink-0" />
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5 mb-1">
+                      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                       {label}
                     </p>
                     {isEditing ? (
@@ -217,13 +219,13 @@ const CardView: React.FC<CardViewProps> = ({
                             else handleSaveEdit();
                           } else if (e.key === 'Escape') setEditingCell(null);
                         }}
-                        className="w-full px-2 py-1 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none"
+                        className="w-full px-2 py-1.5 text-sm border-2 rounded-lg bg-amber-50 focus:outline-none"
                         style={{ borderColor: ORANGE }}
                       />
                     ) : (
                       <p
                         onClick={() => editable && onCellEdit(rowIndex, key)}
-                        className={`text-xs text-gray-800 truncate rounded px-1 -mx-1 py-0.5 ${
+                        className={`text-sm text-gray-800 truncate rounded px-1 -mx-1 py-0.5 ${
                           editable
                             ? 'cursor-pointer hover:bg-amber-50/60 active:bg-amber-100'
                             : ''
@@ -231,7 +233,7 @@ const CardView: React.FC<CardViewProps> = ({
                       >
                         {displayVal}
                         {editable && val !== '—' && (
-                          <PencilIcon className="inline-block w-2.5 h-2.5 ml-1 text-gray-300" />
+                          <PencilIcon className="inline-block w-3 h-3 ml-1 text-gray-300" />
                         )}
                       </p>
                     )}
@@ -520,7 +522,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                     </th>
                   );
                 })}
-              </tr>
+               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
