@@ -96,7 +96,7 @@ const colonnesTablet = [
   { key: 'dateDelivrance', label: 'Date Ret.',   icon: CalendarIcon,       width: 'min-w-[100px]' },
 ];
 
-// ─── Card View Mobile ─────────────────────────────────────────────────────────
+// ─── Card View Mobile avec édition tactile ────────────────────────────────────
 interface CardViewProps {
   cartes: any[];
   isFieldEditable: (field: string) => boolean;
@@ -107,7 +107,6 @@ interface CardViewProps {
   editValue: string;
   setEditValue: (v: string) => void;
   handleSaveEdit: () => void;
-  handleDelivranceSave: () => void;
   setEditingCell: (v: any) => void;
 }
 
@@ -121,10 +120,9 @@ const CardView: React.FC<CardViewProps> = ({
   editValue,
   setEditValue,
   handleSaveEdit,
-  handleDelivranceSave,
   setEditingCell,
 }) => {
-  // TOUS les champs importants pour la fiche mobile
+  // Configuration des champs avec leur type
   const fields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
     { key: 'coordination',   label: 'Coordination',        icon: BuildingOfficeIcon },
     { key: 'lieuEnrolement', label: "Lieu d'enrôlement",   icon: MapPinIcon },
@@ -154,7 +152,7 @@ const CardView: React.FC<CardViewProps> = ({
               delivered ? 'bg-emerald-50/40' : rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
             }`}
           >
-            {/* ── En-tête carte : Nom + Prénom en grand + Badge délivrance ── */}
+            {/* ── En-tête carte : Nom + Prénom ── */}
             <div className="flex items-start justify-between gap-2 mb-4">
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-lg leading-tight truncate">
@@ -164,7 +162,7 @@ const CardView: React.FC<CardViewProps> = ({
                   {getCellValue(carte, 'prenoms')}
                 </p>
               </div>
-              {/* Badge délivrance coloré avec toggle */}
+              {/* Badge délivrance avec édition */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => onDelivranceToggle(rowIndex)}
@@ -192,7 +190,7 @@ const CardView: React.FC<CardViewProps> = ({
               </div>
             </div>
 
-            {/* ── Grille des champs en 2 colonnes ── */}
+            {/* ── Grille des champs en 2 colonnes avec édition ── */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {fields.map(({ key, label, icon: Icon, isDate }) => {
                 const val = getCellValue(carte, key);
@@ -212,12 +210,10 @@ const CardView: React.FC<CardViewProps> = ({
                         value={editValue}
                         autoFocus
                         onChange={e => setEditValue(e.target.value)}
-                        onBlur={key === 'delivrance' ? handleDelivranceSave : handleSaveEdit}
+                        onBlur={handleSaveEdit}
                         onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            if (key === 'delivrance') handleDelivranceSave();
-                            else handleSaveEdit();
-                          } else if (e.key === 'Escape') setEditingCell(null);
+                          if (e.key === 'Enter') handleSaveEdit();
+                          else if (e.key === 'Escape') setEditingCell(null);
                         }}
                         className="w-full px-2 py-1.5 text-sm border-2 rounded-lg bg-amber-50 focus:outline-none"
                         style={{ borderColor: ORANGE }}
@@ -266,10 +262,10 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
       const w = window.innerWidth;
       if (w < 640) {
         setScreenSize('mobile');
-        setViewMode('card');    // Mobile → card par défaut
+        setViewMode('card');
       } else if (w < 1024) {
         setScreenSize('tablet');
-        setViewMode('table');   // Tablette → tableau par défaut
+        setViewMode('table');
       } else {
         setScreenSize('desktop');
         setViewMode('table');
@@ -280,7 +276,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Détecter si le tableau dépasse et afficher l'indicateur de scroll
   useEffect(() => {
     const el = tableRef.current;
     if (!el) return;
@@ -386,8 +381,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     <div>
       {/* ── Barre d'outils ──────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60 gap-3 flex-wrap">
-
-        {/* Gauche : compteur + modifs */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-700">
             {localCartes.length} carte{localCartes.length > 1 ? 's' : ''}
@@ -399,15 +392,11 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           )}
         </div>
 
-        {/* Droite : toggle vue + exports + rôle */}
         <div className="flex items-center gap-2 flex-wrap">
-
-          {/* Toggle Table / Card (visible sur mobile et tablette) */}
           {!isMobile && (
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('table')}
-                title="Vue tableau"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   viewMode === 'table'
                     ? 'bg-white shadow text-gray-800'
@@ -419,7 +408,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('card')}
-                title="Vue fiches"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   viewMode === 'card'
                     ? 'bg-white shadow text-gray-800'
@@ -432,13 +420,11 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </div>
           )}
 
-          {/* Exports */}
           {(onExportCSV || onExportExcel) && (
             <div className="flex items-center gap-1.5">
               {onExportCSV && (
                 <button
                   onClick={onExportCSV}
-                  title="Exporter en CSV"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all text-gray-600 bg-white"
                 >
                   <ArrowDownTrayIcon className="w-3.5 h-3.5" />
@@ -448,7 +434,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
               {onExportExcel && (
                 <button
                   onClick={onExportExcel}
-                  title="Exporter en Excel"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all text-gray-600 bg-white"
                 >
                   <TableCellsIcon className="w-3.5 h-3.5" />
@@ -458,7 +443,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </div>
           )}
 
-          {/* Badge rôle */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
             isOperateur
               ? 'bg-gray-50 text-gray-500 border-gray-200'
@@ -473,7 +457,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </div>
       </div>
 
-      {/* ── Indicateur scroll horizontal (tablette/desktop en mode tableau) ── */}
       <AnimatePresence>
         {viewMode === 'table' && showScrollHint && (
           <motion.div
@@ -489,7 +472,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ── Vue Fiches (Card View) ─────────────────────────────── */}
       {viewMode === 'card' ? (
         <CardView
           cartes={localCartes}
@@ -501,11 +483,9 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           editValue={editValue}
           setEditValue={setEditValue}
           handleSaveEdit={handleSaveEdit}
-          handleDelivranceSave={handleDelivranceSave}
           setEditingCell={setEditingCell}
         />
       ) : (
-        /* ── Vue Tableau ───────────────────────────────────────── */
         <div ref={tableRef} className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -547,7 +527,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                       const displayVal = col.key.toLowerCase().includes('date') ? formatDate(cellValue) : cellValue;
                       const isEmpty    = cellValue === '—';
 
-                      // ── Colonne Délivrance : traitement spécial ──
                       if (col.key === 'delivrance') {
                         const delivered = isDelivre(carte.delivrance);
                         return (
@@ -597,7 +576,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                         );
                       }
 
-                      // ── Cellule standard ──
                       return (
                         <td
                           key={col.key}
@@ -641,7 +619,6 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </div>
       )}
 
-      {/* ── Pied de tableau ─────────────────────────────────────── */}
       <div className="px-4 py-3 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
