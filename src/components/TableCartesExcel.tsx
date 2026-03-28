@@ -151,7 +151,7 @@ const CardView: React.FC<CardViewProps> = ({
             <div className="mx-3 my-3 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
 
               {/* ── Header blanc avec ligne orange en bas ── */}
-              <div className="bg-white border-b-2 px-4 pt-4 pb-3" style={{ borderBottomColor: ORANGE }}>
+              <div className="border-b-2 px-4 pt-4 pb-3" style={{ background: '#FFF3E0', borderBottomColor: ORANGE }}>
 
                 {/* Ligne 1 : Logo + Nom + Badge */}
                 <div className="flex items-start gap-3">
@@ -180,10 +180,10 @@ const CardView: React.FC<CardViewProps> = ({
 
                   {/* Nom + Prénom */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-base leading-tight truncate">
+                    <p className="font-bold text-base leading-tight truncate" style={{ color: '#7c3400' }}>
                       {getCellValue(carte, 'nom')}
                     </p>
-                    <p className="text-sm text-gray-500 truncate mt-0.5">
+                    <p className="text-sm truncate mt-0.5" style={{ color: '#a04a10' }}>
                       {getCellValue(carte, 'prenoms')}
                     </p>
                   </div>
@@ -212,9 +212,9 @@ const CardView: React.FC<CardViewProps> = ({
                     </span>
                   )}
                   {coordination !== '—' && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
-                      style={{ background: '#fff8f0', borderColor: '#fed7aa', color: '#92400e' }}>
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ORANGE }} />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{ background: ORANGE, color: '#fff' }}>
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 opacity-80" style={{ background: '#fff' }} />
                       {coordination}
                     </span>
                   )}
@@ -373,8 +373,7 @@ const CardView: React.FC<CardViewProps> = ({
               </div>
 
               {/* ── Footer ── */}
-              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                <span className="text-[11px] text-gray-400">ID #{carte.id || '—'}</span>
+              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end">
                 {delivranceEditable && (
                   <button
                     onClick={() => onDelivranceEdit(rowIndex)}
@@ -403,39 +402,26 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue,   setEditValue]   = useState('');
   const [localCartes, setLocalCartes] = useState<any[]>(cartes);
-  const [viewMode,    setViewMode]    = useState<'table' | 'card'>('table');
+  const [viewMode,    setViewMode]    = useState<'table' | 'card'>('card'); // Fiches par défaut
   const [screenSize,  setScreenSize]  = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const tableRef = useRef<HTMLDivElement>(null);
-  const [showScrollHint, setShowScrollHint] = useState(false);
 
   useEffect(() => {
     const check = () => {
       const w = window.innerWidth;
       if (w < 640) {
         setScreenSize('mobile');
-        setViewMode('card');    // Mobile → card par défaut
       } else if (w < 1024) {
         setScreenSize('tablet');
-        setViewMode('table');   // Tablette → tableau par défaut
       } else {
         setScreenSize('desktop');
-        setViewMode('table');
       }
+      // Fiches par défaut sur tous les écrans
     };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-
-  // Détecter si le tableau dépasse et afficher l'indicateur de scroll
-  useEffect(() => {
-    const el = tableRef.current;
-    if (!el) return;
-    const check = () => setShowScrollHint(el.scrollWidth > el.clientWidth);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, [localCartes, viewMode]);
 
   const prevIdsRef = useRef<string>('');
   useEffect(() => {
@@ -549,35 +535,33 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         {/* Droite : toggle vue + exports + rôle */}
         <div className="flex items-center gap-2 flex-wrap">
 
-          {/* Toggle Table / Card (visible sur mobile et tablette) */}
-          {!isMobile && (
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-              <button
-                onClick={() => setViewMode('table')}
-                title="Vue tableau"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  viewMode === 'table'
-                    ? 'bg-white shadow text-gray-800'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                <ListBulletIcon className="w-3.5 h-3.5" />
-                {!isTablet && 'Tableau'}
-              </button>
-              <button
-                onClick={() => setViewMode('card')}
-                title="Vue fiches"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  viewMode === 'card'
-                    ? 'bg-white shadow text-gray-800'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                <Squares2X2Icon className="w-3.5 h-3.5" />
-                {!isTablet && 'Fiches'}
-              </button>
-            </div>
-          )}
+          {/* Toggle Table / Card — visible sur tous les écrans */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              title="Vue tableau"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'table'
+                  ? 'bg-white shadow text-gray-800'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <ListBulletIcon className="w-3.5 h-3.5" />
+              {!isMobile && 'Tableau'}
+            </button>
+            <button
+              onClick={() => setViewMode('card')}
+              title="Vue fiches"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'card'
+                  ? 'bg-white shadow text-gray-800'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Squares2X2Icon className="w-3.5 h-3.5" />
+              {!isMobile && 'Fiches'}
+            </button>
+          </div>
 
           {/* Exports */}
           {(onExportCSV || onExportExcel) && (
@@ -620,21 +604,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </div>
       </div>
 
-      {/* ── Indicateur scroll horizontal (tablette/desktop en mode tableau) ── */}
-      <AnimatePresence>
-        {viewMode === 'table' && showScrollHint && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex items-center justify-center gap-2 py-1.5 bg-amber-50 border-b border-amber-100 text-xs text-amber-600 font-medium"
-          >
-            <span>←</span>
-            <span>Faites défiler horizontalement pour voir toutes les colonnes</span>
-            <span>→</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* ── Vue Fiches (Card View) ─────────────────────────────── */}
       {viewMode === 'card' ? (
@@ -709,7 +679,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                                   if (e.key === 'Enter') handleDelivranceSave();
                                   else if (e.key === 'Escape') setEditingCell(null);
                                 }}
-                                placeholder="Nom livreur ou mention…"
+                                placeholder="Nom du bénéficiaire…"
                                 className={`w-full px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none ${textSz}`}
                                 style={{ borderColor: ORANGE }}
                               />
