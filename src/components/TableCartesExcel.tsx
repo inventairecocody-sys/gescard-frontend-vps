@@ -96,7 +96,7 @@ const colonnesTablet = [
   { key: 'dateDelivrance', label: 'Date Ret.',   icon: CalendarIcon,       width: 'min-w-[100px]' },
 ];
 
-// ─── Card View Mobile avec édition tactile ────────────────────────────────────
+// ─── Card View Mobile ─────────────────────────────────────────────────────────
 interface CardViewProps {
   cartes: any[];
   isFieldEditable: (field: string) => boolean;
@@ -111,28 +111,20 @@ interface CardViewProps {
 }
 
 const CardView: React.FC<CardViewProps> = ({
-  cartes,
-  isFieldEditable,
-  onDelivranceToggle,
-  onDelivranceEdit,
-  onCellEdit,
-  editingCell,
-  editValue,
-  setEditValue,
-  handleSaveEdit,
-  setEditingCell,
+  cartes, isFieldEditable,
+  onDelivranceToggle, onDelivranceEdit, onCellEdit,
+  editingCell, editValue, setEditValue, handleSaveEdit, setEditingCell,
 }) => {
-  // Configuration des champs avec leur type
   const fields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
-    { key: 'coordination',   label: 'Coordination',        icon: BuildingOfficeIcon },
-    { key: 'lieuEnrolement', label: "Lieu d'enrôlement",   icon: MapPinIcon },
-    { key: 'siteRetrait',    label: 'Site de retrait',     icon: MapPinIcon },
-    { key: 'rangement',      label: 'Rangement',           icon: DocumentTextIcon },
-    { key: 'lieuNaissance',  label: 'Lieu de naissance',   icon: MapPinIcon },
-    { key: 'dateNaissance',  label: 'Date de naissance',   icon: CalendarIcon, isDate: true },
-    { key: 'contact',        label: 'Contact',             icon: PhoneIcon },
-    { key: 'contactRetrait', label: 'Contact retrait',     icon: PhoneIcon },
-    { key: 'dateDelivrance', label: 'Date de retrait',     icon: CalendarIcon, isDate: true },
+    { key: 'coordination',   label: 'Coordination',     icon: BuildingOfficeIcon },
+    { key: 'lieuEnrolement', label: "Lieu d'enrôlement", icon: MapPinIcon },
+    { key: 'siteRetrait',    label: 'Site de retrait',  icon: MapPinIcon },
+    { key: 'rangement',      label: 'Rangement',        icon: DocumentTextIcon },
+    { key: 'lieuNaissance',  label: 'Lieu de naissance', icon: MapPinIcon },
+    { key: 'dateNaissance',  label: 'Date de naissance', icon: CalendarIcon, isDate: true },
+    { key: 'contact',        label: 'Contact',          icon: PhoneIcon },
+    { key: 'contactRetrait', label: 'Contact retrait',  icon: PhoneIcon },
+    { key: 'dateDelivrance', label: 'Date de retrait',  icon: CalendarIcon, isDate: true },
   ];
 
   return (
@@ -152,37 +144,36 @@ const CardView: React.FC<CardViewProps> = ({
               delivered ? 'bg-emerald-50/40' : rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
             }`}
           >
-            {/* ── En-tête carte : Nom + Prénom ── */}
-            <div className="flex items-start justify-between gap-2 mb-4">
+            {/* ── En-tête carte : Nom + Badge délivrance ── */}
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-lg leading-tight truncate">
+                <p className="font-bold text-gray-900 text-base leading-tight truncate">
                   {getCellValue(carte, 'nom')}
                 </p>
                 <p className="text-sm text-gray-500 truncate mt-0.5">
                   {getCellValue(carte, 'prenoms')}
                 </p>
               </div>
-              {/* Badge délivrance avec édition */}
+              {/* Badge délivrance */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => onDelivranceToggle(rowIndex)}
                   disabled={!delivranceEditable}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
                     delivered
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-500'
+                      : 'bg-gray-50 border-gray-200 text-gray-400'
                   } ${delivranceEditable ? 'cursor-pointer hover:shadow-sm' : 'cursor-default opacity-70'}`}
                 >
-                  <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                  <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 ${
                     delivered ? 'border-emerald-500' : 'border-gray-300'
                   }`} style={delivered ? { backgroundColor: GREEN, borderColor: GREEN } : {}}>
-                    {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+                    {delivered && <CheckIcon className="w-2 h-2 text-white" />}
                   </div>
                   <span
                     onClick={(e) => {
                       if (delivranceEditable) { e.stopPropagation(); onDelivranceEdit(rowIndex); }
                     }}
-                    className={delivered ? 'font-semibold' : ''}
                   >
                     {delivranceVal}
                   </span>
@@ -190,8 +181,8 @@ const CardView: React.FC<CardViewProps> = ({
               </div>
             </div>
 
-            {/* ── Grille des champs en 2 colonnes avec édition ── */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            {/* ── Grille des champs ── */}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
               {fields.map(({ key, label, icon: Icon, isDate }) => {
                 const val = getCellValue(carte, key);
                 const displayVal = isDate ? formatDate(val) : val;
@@ -200,8 +191,8 @@ const CardView: React.FC<CardViewProps> = ({
 
                 return (
                   <div key={key} className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5 mb-1">
-                      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1 mb-0.5">
+                      <Icon className="w-3 h-3 flex-shrink-0" />
                       {label}
                     </p>
                     {isEditing ? (
@@ -215,13 +206,13 @@ const CardView: React.FC<CardViewProps> = ({
                           if (e.key === 'Enter') handleSaveEdit();
                           else if (e.key === 'Escape') setEditingCell(null);
                         }}
-                        className="w-full px-2 py-1.5 text-sm border-2 rounded-lg bg-amber-50 focus:outline-none"
+                        className="w-full px-2 py-1 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none"
                         style={{ borderColor: ORANGE }}
                       />
                     ) : (
                       <p
                         onClick={() => editable && onCellEdit(rowIndex, key)}
-                        className={`text-sm text-gray-800 truncate rounded px-1 -mx-1 py-0.5 ${
+                        className={`text-xs text-gray-800 truncate rounded px-1 -mx-1 py-0.5 ${
                           editable
                             ? 'cursor-pointer hover:bg-amber-50/60 active:bg-amber-100'
                             : ''
@@ -229,7 +220,7 @@ const CardView: React.FC<CardViewProps> = ({
                       >
                         {displayVal}
                         {editable && val !== '—' && (
-                          <PencilIcon className="inline-block w-3 h-3 ml-1 text-gray-300" />
+                          <PencilIcon className="inline-block w-2.5 h-2.5 ml-1 text-gray-300" />
                         )}
                       </p>
                     )}
@@ -262,10 +253,10 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
       const w = window.innerWidth;
       if (w < 640) {
         setScreenSize('mobile');
-        setViewMode('card');
+        setViewMode('card');    // Mobile → card par défaut
       } else if (w < 1024) {
         setScreenSize('tablet');
-        setViewMode('table');
+        setViewMode('table');   // Tablette → tableau par défaut
       } else {
         setScreenSize('desktop');
         setViewMode('table');
@@ -276,6 +267,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Détecter si le tableau dépasse et afficher l'indicateur de scroll
   useEffect(() => {
     const el = tableRef.current;
     if (!el) return;
@@ -381,6 +373,8 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
     <div>
       {/* ── Barre d'outils ──────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60 gap-3 flex-wrap">
+
+        {/* Gauche : compteur + modifs */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-700">
             {localCartes.length} carte{localCartes.length > 1 ? 's' : ''}
@@ -392,11 +386,15 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           )}
         </div>
 
+        {/* Droite : toggle vue + exports + rôle */}
         <div className="flex items-center gap-2 flex-wrap">
+
+          {/* Toggle Table / Card (visible sur mobile et tablette) */}
           {!isMobile && (
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('table')}
+                title="Vue tableau"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   viewMode === 'table'
                     ? 'bg-white shadow text-gray-800'
@@ -408,6 +406,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('card')}
+                title="Vue fiches"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   viewMode === 'card'
                     ? 'bg-white shadow text-gray-800'
@@ -420,11 +419,13 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </div>
           )}
 
+          {/* Exports */}
           {(onExportCSV || onExportExcel) && (
             <div className="flex items-center gap-1.5">
               {onExportCSV && (
                 <button
                   onClick={onExportCSV}
+                  title="Exporter en CSV"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-amber-50 hover:border-amber-300 hover:text-[#E07B00] transition-all text-gray-600 bg-white"
                 >
                   <ArrowDownTrayIcon className="w-3.5 h-3.5" />
@@ -434,6 +435,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
               {onExportExcel && (
                 <button
                   onClick={onExportExcel}
+                  title="Exporter en Excel"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all text-gray-600 bg-white"
                 >
                   <TableCellsIcon className="w-3.5 h-3.5" />
@@ -443,6 +445,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
             </div>
           )}
 
+          {/* Badge rôle */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
             isOperateur
               ? 'bg-gray-50 text-gray-500 border-gray-200'
@@ -457,6 +460,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </div>
       </div>
 
+      {/* ── Indicateur scroll horizontal (tablette/desktop en mode tableau) ── */}
       <AnimatePresence>
         {viewMode === 'table' && showScrollHint && (
           <motion.div
@@ -472,6 +476,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         )}
       </AnimatePresence>
 
+      {/* ── Vue Fiches (Card View) ─────────────────────────────── */}
       {viewMode === 'card' ? (
         <CardView
           cartes={localCartes}
@@ -486,6 +491,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           setEditingCell={setEditingCell}
         />
       ) : (
+        /* ── Vue Tableau ───────────────────────────────────────── */
         <div ref={tableRef} className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -502,7 +508,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                     </th>
                   );
                 })}
-               </tr>
+              </tr>
             </thead>
             <tbody>
               <AnimatePresence>
@@ -527,6 +533,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                       const displayVal = col.key.toLowerCase().includes('date') ? formatDate(cellValue) : cellValue;
                       const isEmpty    = cellValue === '—';
 
+                      // ── Colonne Délivrance : traitement spécial ──
                       if (col.key === 'delivrance') {
                         const delivered = isDelivre(carte.delivrance);
                         return (
@@ -576,6 +583,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                         );
                       }
 
+                      // ── Cellule standard ──
                       return (
                         <td
                           key={col.key}
@@ -619,6 +627,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         </div>
       )}
 
+      {/* ── Pied de tableau ─────────────────────────────────────── */}
       <div className="px-4 py-3 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
