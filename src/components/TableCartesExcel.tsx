@@ -96,21 +96,13 @@ const colonnesTablet = [
   { key: 'dateDelivrance', label: 'Date Ret.',   icon: CalendarIcon,       width: 'min-w-[100px]' },
 ];
 
-// ─── Card View Mobile ─────────────────────────────────────────────────────────
+// ─── Card View ────────────────────────────────────────────────────────────────
 interface CardViewProps {
   cartes: any[];
   isFieldEditable: (field: string) => boolean;
-  onDelivranceToggle: (rowIndex: number) => void;
-  onDelivranceEdit: (rowIndex: number) => void;
-  onCellEdit: (rowIndex: number, field: string) => void;
-  editingCell: { rowIndex: number; field: string } | null;
-  editValue: string;
-  setEditValue: (v: string) => void;
-  handleSaveEdit: () => void;
-  setEditingCell: (v: any) => void;
+  onUpdateCartes: (cartes: any[]) => void;
 }
 
-// Champs de la grille identité (hors délivrance gérée à part)
 const identiteFields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
   { key: 'lieuNaissance',  label: 'Lieu de naissance',  icon: MapPinIcon },
   { key: 'dateNaissance',  label: 'Date de naissance',  icon: CalendarIcon, isDate: true },
@@ -119,23 +111,64 @@ const identiteFields: { key: string; label: string; icon: React.ElementType; isD
   { key: 'contact',        label: 'Contact',            icon: PhoneIcon },
 ];
 
-const CardView: React.FC<CardViewProps> = ({
-  cartes, isFieldEditable,
-  onDelivranceToggle, onDelivranceEdit, onCellEdit,
-  editingCell, editValue, setEditValue, handleSaveEdit, setEditingCell,
-}) => {
+const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCartes }) => {
+  // editingRow : index de la carte en cours d'édition (-1 = aucune)
+  const [editingRow,  setEditingRow]  = useState<number>(-1);
+  const [editValues,  setEditValues]  = useState<Record<string, string>>({});
+
+  const startEdit = (rowIndex: number, carte: any) => {
+    setEditValues({
+      lieuNaissance:  carte.lieuNaissance  || '',
+      dateNaissance:  carte.dateNaissance  || '',
+      lieuEnrolement: carte.lieuEnrolement || '',
+      siteRetrait:    carte.siteRetrait    || '',
+      contact:        carte.contact        || '',
+      delivrance:     carte.delivrance     || '',
+      contactRetrait: carte.contactRetrait || '',
+      dateDelivrance: carte.dateDelivrance || '',
+    });
+    setEditingRow(rowIndex);
+  };
+
+  const cancelEdit = () => {
+    setEditingRow(-1);
+    setEditValues({});
+  };
+
+  const saveEdit = (rowIndex: number) => {
+    const updated = [...cartes];
+    updated[rowIndex] = {
+      ...updated[rowIndex],
+      lieuNaissance:  editValues.lieuNaissance,
+      dateNaissance:  editValues.dateNaissance,
+      lieuEnrolement: editValues.lieuEnrolement,
+      siteRetrait:    editValues.siteRetrait,
+      contact:        editValues.contact,
+      delivrance:     editValues.delivrance,
+      contactRetrait: editValues.contactRetrait,
+      dateDelivrance: editValues.dateDelivrance,
+    };
+    onUpdateCartes(updated);
+    setEditingRow(-1);
+    setEditValues({});
+  };
+
+  const setField = (key: string, val: string) =>
+    setEditValues(prev => ({ ...prev, [key]: val }));
+
+  // Classes réutilisables
+  const inputCls = "w-full px-2 py-1.5 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none focus:border-orange-400 transition-colors";
+  const labelCls = "text-[10px] font-semibold uppercase tracking-wide flex items-center gap-1 mb-1";
+
   return (
     <div className="divide-y divide-gray-100">
       {cartes.map((carte, rowIndex) => {
-        const delivered        = isDelivre(carte.delivrance);
-        const delivranceVal    = getCellValue(carte, 'delivrance');
-        const dateDelivranceVal = formatDate(getCellValue(carte, 'dateDelivrance'));
-        const contactRetraitVal = getCellValue(carte, 'contactRetrait');
-        const rangement        = getCellValue(carte, 'rangement');
-        const coordination     = getCellValue(carte, 'coordination');
-        const delivranceEditable = isFieldEditable('delivrance');
-
-        // Initiales pour fallback logo
+        const isEditing      = editingRow === rowIndex;
+        const delivered      = isDelivre(isEditing ? editValues.delivrance : carte.delivrance);
+        const delivranceVal  = isEditing ? editValues.delivrance : getCellValue(carte, 'delivrance');
+        const rangement      = getCellValue(carte, 'rangement');
+        const coordination   = getCellValue(carte, 'coordination');
+        const canEditCard    = isFieldEditable('delivrance') || isFieldEditable('nom');
         const nomInitiale    = (carte.nom    || '').charAt(0).toUpperCase();
         const prenomInitiale = (carte.prenoms || carte.prenom || '').charAt(0).toUpperCase();
 
@@ -147,38 +180,27 @@ const CardView: React.FC<CardViewProps> = ({
             transition={{ delay: Math.min(rowIndex * 0.04, 0.5) }}
             className="bg-white"
           >
-            {/* ══ CARTE ══════════════════════════════════════════════ */}
             <div className="mx-3 my-3 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
 
-              {/* ── Header blanc avec ligne orange en bas ── */}
+              {/* ── Header orange pâle ── */}
               <div className="border-b-2 px-4 pt-4 pb-3" style={{ background: '#FFF3E0', borderBottomColor: ORANGE }}>
-
-                {/* Ligne 1 : Logo + Nom + Badge */}
                 <div className="flex items-start gap-3">
                   {/* Logo */}
                   <div className="w-11 h-11 rounded-full border-2 flex items-center justify-center flex-shrink-0 overflow-hidden bg-amber-50"
                     style={{ borderColor: ORANGE }}>
-                    <img
-                      src="/logo-placeholder.png"
-                      alt="logo"
-                      className="w-7 h-7 object-contain"
+                    <img src="/logo-placeholder.png" alt="logo" className="w-7 h-7 object-contain"
                       onError={(e) => {
                         const t = e.currentTarget;
                         t.style.display = 'none';
                         const fb = t.nextSibling as HTMLElement;
                         if (fb) fb.style.display = 'flex';
-                      }}
-                    />
-                    {/* Fallback initiales si logo absent */}
-                    <span
-                      className="text-sm font-semibold hidden items-center justify-center w-full h-full"
-                      style={{ color: ORANGE, display: 'none' }}
-                    >
+                      }} />
+                    <span className="text-sm font-semibold items-center justify-center w-full h-full"
+                      style={{ color: ORANGE, display: 'none' }}>
                       {nomInitiale}{prenomInitiale}
                     </span>
                   </div>
-
-                  {/* Nom + Prénom */}
+                  {/* Nom */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-base leading-tight truncate" style={{ color: '#7c3400' }}>
                       {getCellValue(carte, 'nom')}
@@ -187,26 +209,21 @@ const CardView: React.FC<CardViewProps> = ({
                       {getCellValue(carte, 'prenoms')}
                     </p>
                   </div>
-
-                  {/* Badge délivrance */}
-                  <button
-                    onClick={() => onDelivranceToggle(rowIndex)}
-                    disabled={!delivranceEditable}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border flex-shrink-0 transition-all ${
-                      delivered
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-400'
-                    } ${delivranceEditable ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
-                  >
-                    <span className={'w-2 h-2 rounded-full flex-shrink-0 ' + (delivered ? 'bg-emerald-400' : 'bg-gray-300')} />
+                  {/* Badge statut */}
+                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border flex-shrink-0 ${
+                    delivered
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-400'
+                  }`}>
+                    <span className={'w-2 h-2 rounded-full ' + (delivered ? 'bg-emerald-400' : 'bg-gray-300')} />
                     {delivered ? 'Délivrée' : 'En attente'}
-                  </button>
+                  </span>
                 </div>
-
-                {/* Ligne 2 : Pills Rangement + Coordination */}
+                {/* Pills rangement + coordination */}
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
                   {rangement !== '—' && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-white/70 border text-amber-900"
+                      style={{ borderColor: '#f0b87a' }}>
                       <DocumentTextIcon className="w-3 h-3" />
                       Rang. {rangement}
                     </span>
@@ -214,62 +231,53 @@ const CardView: React.FC<CardViewProps> = ({
                   {coordination !== '—' && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
                       style={{ background: ORANGE, color: '#fff' }}>
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 opacity-80" style={{ background: '#fff' }} />
+                      <span className="w-1.5 h-1.5 rounded-full opacity-80 bg-white" />
                       {coordination}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* ── Corps : Section Identité ── */}
+              {/* ── Bandeau mode édition ── */}
+              {isEditing && (
+                <div className="flex items-center gap-2 px-4 py-2 border-b text-xs font-medium"
+                  style={{ background: '#fff8f0', borderBottomColor: '#fed7aa', color: '#92400e' }}>
+                  <span className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: ORANGE }} />
+                  Mode édition — modifiez les champs puis enregistrez
+                </div>
+              )}
+
+              {/* ── Section Identité ── */}
               <div className="px-4 pt-3 pb-0">
-                {/* Titre section orange */}
                 <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b" style={{ borderBottomColor: '#fed7aa' }}>
                   <UserIcon className="w-3 h-3 flex-shrink-0" style={{ color: ORANGE }} />
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: ORANGE }}>
                     Identité
                   </span>
                 </div>
-
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pb-3">
                   {identiteFields.map(({ key, label, icon: Icon, isDate }) => {
-                    const val        = getCellValue(carte, key);
-                    const displayVal = isDate ? formatDate(val) : val;
-                    const editable   = isFieldEditable(key);
-                    const isEmpty    = val === '—';
-                    const isEditing  = editingCell?.rowIndex === rowIndex && editingCell?.field === key;
-
+                    const storedVal  = getCellValue(carte, key);
+                    const displayVal = isDate ? formatDate(storedVal) : storedVal;
+                    const isEmpty    = storedVal === '—';
                     return (
                       <div key={key} className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1 mb-0.5">
+                        <p className={`${labelCls} ${isEditing ? 'text-amber-700' : 'text-gray-400'}`}>
                           <Icon className="w-3 h-3 flex-shrink-0" />
                           {label}
                         </p>
                         {isEditing ? (
                           <input
                             type={isDate ? 'date' : 'text'}
-                            value={editValue}
-                            autoFocus
-                            onChange={e => setEditValue(e.target.value)}
-                            onBlur={handleSaveEdit}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') handleSaveEdit();
-                              else if (e.key === 'Escape') setEditingCell(null);
-                            }}
-                            className="w-full px-2 py-1 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none"
+                            value={editValues[key] || ''}
+                            onChange={e => setField(key, e.target.value)}
+                            className={inputCls}
                             style={{ borderColor: ORANGE }}
+                            placeholder={label + '…'}
                           />
                         ) : (
-                          <p
-                            onClick={() => editable && onCellEdit(rowIndex, key)}
-                            className={`text-xs truncate rounded px-1 -mx-1 py-0.5 ${
-                              isEmpty ? 'text-gray-300 italic' : 'text-gray-800'
-                            } ${editable ? 'cursor-pointer hover:bg-amber-50/60 active:bg-amber-100' : ''}`}
-                          >
+                          <p className={`text-xs truncate ${isEmpty ? 'text-gray-300 italic' : 'text-gray-800'}`}>
                             {displayVal}
-                            {editable && !isEmpty && (
-                              <PencilIcon className="inline-block w-2.5 h-2.5 ml-1 text-gray-300" />
-                            )}
                           </p>
                         )}
                       </div>
@@ -280,7 +288,6 @@ const CardView: React.FC<CardViewProps> = ({
 
               {/* ── Section Délivrance ── */}
               <div className="px-4 pt-0 pb-3">
-                {/* Titre section orange */}
                 <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b" style={{ borderBottomColor: '#fed7aa' }}>
                   <CheckCircleIcon className="w-3 h-3 flex-shrink-0" style={{ color: ORANGE }} />
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: ORANGE }}>
@@ -288,101 +295,158 @@ const CardView: React.FC<CardViewProps> = ({
                   </span>
                 </div>
 
-                {/* Bloc côte à côte : Statut | Date de retrait */}
-                <div className={'grid grid-cols-2 gap-0 rounded-xl overflow-hidden border ' +
-                  (delivered ? 'border-emerald-200' : 'border-gray-200')}>
+                <div className={'rounded-xl overflow-hidden border ' + (delivered ? 'border-emerald-200' : 'border-gray-200')}>
 
-                  {/* Cellule Statut (gauche) */}
-                  <div className={'p-2.5 border-r ' + (delivered ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200')}>
-                    <p className={'text-[10px] font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1 ' +
-                      (delivered ? 'text-emerald-600' : 'text-gray-400')}>
-                      <CheckCircleIcon className="w-3 h-3" />
-                      Statut
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      {/* Checkbox cliquable */}
-                      <button
-                        onClick={() => onDelivranceToggle(rowIndex)}
-                        disabled={!delivranceEditable}
-                        className={'w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-all ' +
-                          (!delivranceEditable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer')}
-                        style={delivered
-                          ? { backgroundColor: GREEN, borderColor: GREEN }
-                          : { backgroundColor: 'white', borderColor: '#d1d5db' }}
-                      >
-                        {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
-                      </button>
-                      <div className="min-w-0">
-                        <p className={'text-xs font-semibold truncate ' + (delivered ? 'text-emerald-700' : 'text-gray-400 italic')}>
+                  {/* Ligne statut */}
+                  <div className={'flex items-center gap-2 px-3 py-2.5 border-b ' +
+                    (delivered ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200')}>
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={() => setField('delivrance', delivered ? '' : 'OUI')}
+                          className={'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer'}
+                          style={delivered
+                            ? { backgroundColor: GREEN, borderColor: GREEN }
+                            : { backgroundColor: 'white', borderColor: '#d1d5db' }}
+                        >
+                          {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+                        </button>
+                        <select
+                          value={editValues.delivrance || ''}
+                          onChange={e => setField('delivrance', e.target.value)}
+                          className="flex-1 text-xs px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none"
+                          style={{ borderColor: ORANGE, color: '#7c3400' }}
+                        >
+                          <option value="">Non délivrée</option>
+                          <option value="OUI">Délivrée</option>
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <div className={'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0'}
+                          style={delivered
+                            ? { backgroundColor: GREEN, borderColor: GREEN }
+                            : { backgroundColor: 'white', borderColor: '#d1d5db' }}>
+                          {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <span className={'text-xs font-semibold ' + (delivered ? 'text-emerald-700' : 'text-gray-400 italic')}>
                           {delivered ? 'Délivrée' : 'Non délivrée'}
-                        </p>
-                        {/* Nom de la personne qui a retiré */}
+                        </span>
                         {delivered && delivranceVal !== 'Délivré' && delivranceVal !== '—' && (
-                          <p
-                            onClick={() => delivranceEditable && onDelivranceEdit(rowIndex)}
-                            className={'text-[11px] text-emerald-600 truncate mt-0.5 ' + (delivranceEditable ? 'cursor-pointer hover:underline' : '')}
-                          >
-                            {delivranceVal}
-                          </p>
+                          <span className="text-[11px] text-emerald-600 ml-1 truncate">— {delivranceVal}</span>
                         )}
-                      </div>
-                      {delivranceEditable && (
-                        <PencilIcon className="w-3 h-3 text-gray-300 flex-shrink-0 ml-auto" />
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Cellule Date de retrait (droite) */}
-                  <div className={'p-2.5 ' + (delivered ? 'bg-emerald-50' : 'bg-gray-50')}>
-                    <p className={'text-[10px] font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1 ' +
-                      (delivered ? 'text-emerald-600' : 'text-gray-400')}>
-                      <CalendarIcon className="w-3 h-3" />
-                      Date retrait
-                    </p>
-                    {editingCell?.rowIndex === rowIndex && editingCell?.field === 'dateDelivrance' ? (
-                      <input
-                        type="date"
-                        value={editValue}
-                        autoFocus
-                        onChange={e => setEditValue(e.target.value)}
-                        onBlur={handleSaveEdit}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleSaveEdit();
-                          else if (e.key === 'Escape') setEditingCell(null);
-                        }}
-                        className="w-full px-1.5 py-0.5 text-xs border-2 rounded-lg bg-amber-50 focus:outline-none"
-                        style={{ borderColor: ORANGE }}
-                      />
-                    ) : (
-                      <p
-                        onClick={() => isFieldEditable('dateDelivrance') && onCellEdit(rowIndex, 'dateDelivrance')}
-                        className={'text-xs font-medium truncate ' +
-                          (dateDelivranceVal === '—' ? 'text-gray-300 italic' : (delivered ? 'text-emerald-700' : 'text-gray-600')) +
-                          (isFieldEditable('dateDelivrance') ? ' cursor-pointer hover:underline' : '')}
-                      >
-                        {dateDelivranceVal}
+                  {/* Grille : Bénéficiaire | Contact retrait */}
+                  <div className="grid grid-cols-2">
+                    {/* Bénéficiaire */}
+                    <div className={'p-2.5 border-r ' + (delivered ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200')}>
+                      <p className={`${labelCls} ` + (delivered ? 'text-emerald-600' : 'text-gray-400')}>
+                        <UserIcon className="w-3 h-3" />
+                        Bénéficiaire
                       </p>
-                    )}
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editValues.delivrance && !(['OUI','oui','NON','non','true','false','0','1'].includes(editValues.delivrance))
+                            ? editValues.delivrance : ''}
+                          onChange={e => setField('delivrance', e.target.value || 'OUI')}
+                          placeholder="Nom du bénéficiaire…"
+                          className={inputCls}
+                          style={{ borderColor: ORANGE }}
+                        />
+                      ) : (
+                        <p className={'text-xs font-medium truncate ' +
+                          (delivranceVal === '—' || delivranceVal === 'Délivré' || delivranceVal === 'Non délivré'
+                            ? 'text-gray-300 italic' : (delivered ? 'text-emerald-700' : 'text-gray-600'))}>
+                          {['Délivré', 'Non délivré', '—'].includes(delivranceVal) ? '—' : delivranceVal}
+                        </p>
+                      )}
+                    </div>
 
                     {/* Contact retrait */}
-                    {contactRetraitVal !== '—' && (
-                      <p className="text-[11px] text-gray-400 truncate mt-1">{contactRetraitVal}</p>
-                    )}
+                    <div className={'p-2.5 ' + (delivered ? 'bg-emerald-50' : 'bg-gray-50')}>
+                      <p className={`${labelCls} ` + (delivered ? 'text-emerald-600' : 'text-gray-400')}>
+                        <PhoneIcon className="w-3 h-3" />
+                        Contact retrait
+                      </p>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editValues.contactRetrait || ''}
+                          onChange={e => setField('contactRetrait', e.target.value)}
+                          placeholder="Contact…"
+                          className={inputCls}
+                          style={{ borderColor: ORANGE }}
+                        />
+                      ) : (
+                        <p className={'text-xs font-medium truncate ' +
+                          (getCellValue(carte, 'contactRetrait') === '—'
+                            ? 'text-gray-300 italic' : (delivered ? 'text-emerald-700' : 'text-gray-600'))}>
+                          {getCellValue(carte, 'contactRetrait')}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Date de retrait — pleine largeur */}
+                    <div className={'p-2.5 col-span-2 border-t ' +
+                      (delivered ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200')}>
+                      <p className={`${labelCls} ` + (delivered ? 'text-emerald-600' : 'text-gray-400')}>
+                        <CalendarIcon className="w-3 h-3" />
+                        Date de retrait
+                      </p>
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editValues.dateDelivrance || ''}
+                          onChange={e => setField('dateDelivrance', e.target.value)}
+                          className={inputCls}
+                          style={{ borderColor: ORANGE, maxWidth: '160px' }}
+                        />
+                      ) : (
+                        <p className={'text-xs font-medium ' +
+                          (formatDate(getCellValue(carte, 'dateDelivrance')) === '—'
+                            ? 'text-gray-300 italic' : (delivered ? 'text-emerald-700' : 'text-gray-600'))}>
+                          {formatDate(getCellValue(carte, 'dateDelivrance'))}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* ── Footer ── */}
-              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end">
-                {delivranceEditable && (
-                  <button
-                    onClick={() => onDelivranceEdit(rowIndex)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all"
-                    style={{ color: ORANGE, borderColor: '#fed7aa', background: '#fff8f0' }}
-                  >
-                    <PencilIcon className="w-3 h-3" />
-                    Modifier
-                  </button>
+              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-2">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={cancelEdit}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all text-gray-500 border-gray-200 bg-white hover:bg-gray-50"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => saveEdit(rowIndex)}
+                      className="flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-lg transition-all text-white"
+                      style={{ background: ORANGE }}
+                    >
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      Enregistrer
+                    </button>
+                  </>
+                ) : (
+                  canEditCard && (
+                    <button
+                      onClick={() => startEdit(rowIndex, carte)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all"
+                      style={{ color: ORANGE, borderColor: '#fed7aa', background: '#fff8f0' }}
+                    >
+                      <PencilIcon className="w-3 h-3" />
+                      Modifier
+                    </button>
+                  )
                 )}
               </div>
 
@@ -611,14 +675,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
         <CardView
           cartes={localCartes}
           isFieldEditable={isFieldEditable}
-          onDelivranceToggle={handleDelivranceToggle}
-          onDelivranceEdit={handleDelivranceEdit}
-          onCellEdit={handleCellClick}
-          editingCell={editingCell}
-          editValue={editValue}
-          setEditValue={setEditValue}
-          handleSaveEdit={handleSaveEdit}
-          setEditingCell={setEditingCell}
+          onUpdateCartes={onUpdateCartes}
         />
       ) : (
         /* ── Vue Tableau ───────────────────────────────────────── */
