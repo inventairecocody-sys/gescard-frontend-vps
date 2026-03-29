@@ -62,8 +62,9 @@ export interface EvolutionTemporelle {
 export const StatistiquesService = {
 
   /** Statistiques globales */
-  async getStatistiquesGlobales(): Promise<StatistiquesGlobales> {
-    const response = await apiClient.get('/statistiques/globales');
+  async getStatistiquesGlobales(bustCache = false): Promise<StatistiquesGlobales> {
+    const params = bustCache ? { _t: Date.now() } : {};
+    const response = await apiClient.get('/statistiques/globales', { params });
     return {
       total:       response.data.total       || 0,
       retires:     response.data.retires     || 0,
@@ -78,8 +79,9 @@ export const StatistiquesService = {
   },
 
   /** Statistiques par site */
-  async getStatistiquesParSite(): Promise<StatistiqueSite[]> {
-    const response = await apiClient.get('/statistiques/sites');
+  async getStatistiquesParSite(bustCache = false): Promise<StatistiqueSite[]> {
+    const params = bustCache ? { _t: Date.now() } : {};
+    const response = await apiClient.get('/statistiques/sites', { params });
     const sites    = response.data.sites;
     if (Array.isArray(sites))                    return sites;
     if (sites && Array.isArray((sites as any).sites)) return (sites as any).sites;
@@ -103,12 +105,13 @@ export const StatistiquesService = {
   },
 
   /** Statistiques par agence — filtrable par coordination_id */
-  async getStatistiquesParAgence(coordinationId?: number): Promise<{
+  async getStatistiquesParAgence(coordinationId?: number, bustCache = false): Promise<{
     agences:    AgenceStats[];
     classement: AgenceStats[];
     totaux:     any;
   }> {
-    const params = coordinationId ? { coordination_id: coordinationId } : {};
+    const params: Record<string, any> = coordinationId ? { coordination_id: coordinationId } : {};
+    if (bustCache) params._t = Date.now();
     const response = await apiClient.get('/statistiques/agences', { params });
     return {
       agences:    response.data.agences    || [],

@@ -1197,10 +1197,15 @@ const TableauDeBord: React.FC = () => {
     if (!isOnline && !force) { setError("Mode hors ligne."); setLoading(false); return; }
     try {
       setLoading(true); setError("");
+      // Si force=true (modification carte) : vider le cache backend avant de recharger
+      if (force) {
+        try { await StatistiquesService.refreshCache(); } catch { /* silencieux */ }
+      }
+      // bustCache=true quand force pour ignorer tout cache HTTP/backend
       const [g, s, agRes] = await Promise.all([
-        StatistiquesService.getStatistiquesGlobales(),
-        StatistiquesService.getStatistiquesParSite(),
-        StatistiquesService.getStatistiquesParAgence(),   // retourne { agences, classement, totaux }
+        StatistiquesService.getStatistiquesGlobales(force),
+        StatistiquesService.getStatistiquesParSite(force),
+        StatistiquesService.getStatistiquesParAgence(undefined, force),
       ]);
       setGlobales(g);
       setAllAgences(agRes.agences || []);  // ✅ correction : extraire .agences
@@ -1246,27 +1251,23 @@ const TableauDeBord: React.FC = () => {
   useEffect(() => {
     let lastDirtyTs = localStorage.getItem('gescard_stats_dirty') || '0';
 
-    const refresh = async () => {
-      try { await StatistiquesService.refreshCache(); } catch { /* silencieux */ }
-      await fetchData();
-    };
+    // force=true pour bypasser le cache backend
+    const refresh = () => { fetchData(true); };
 
-    // Écoute l'événement direct (même page / même onglet)
-    const handleDirect = () => { refresh(); };
-    window.addEventListener('carte-modifiee', handleDirect);
+    // Écoute l'événement direct (même onglet, même page)
+    window.addEventListener('carte-modifiee', refresh);
 
-    // Polling localStorage toutes les 3s pour détecter les modifications
-    // faites depuis une autre page (Recherche → TableauDeBord)
+    // Polling localStorage toutes les 2s — détecte les modifs depuis Recherche
     const poll = setInterval(() => {
       const current = localStorage.getItem('gescard_stats_dirty') || '0';
       if (current !== lastDirtyTs) {
         lastDirtyTs = current;
-        refresh();
+        fetchData(true);
       }
-    }, 3000);
+    }, 2000);
 
     return () => {
-      window.removeEventListener('carte-modifiee', handleDirect);
+      window.removeEventListener('carte-modifiee', refresh);
       clearInterval(poll);
     };
   }, [fetchData]);

@@ -209,6 +209,9 @@ const Recherche: React.FC = () => {
       }
       setHasModifications(false);
       cartesOriginalesRef.current = resultats.map(c => ({ ...c }));
+      // Notifier le tableau de bord — même mécanisme que la vue fiches
+      window.dispatchEvent(new CustomEvent('carte-modifiee'));
+      localStorage.setItem('gescard_stats_dirty', Date.now().toString());
       showToast(`${modifiees.length} modification(s) enregistrée(s) avec succès`);
     } catch {
       showToast("Erreur lors de l'enregistrement", 'error');
