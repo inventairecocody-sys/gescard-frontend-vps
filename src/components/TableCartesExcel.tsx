@@ -103,6 +103,7 @@ interface CardViewProps {
   cartes: any[];
   isFieldEditable: (field: string) => boolean;
   onUpdateCartes: (cartes: any[]) => void;
+  onUpdateLocal: (cartes: any[]) => void;  // mise à jour immédiate du state parent
   onToast: (msg: string, type: 'success' | 'error') => void;
   role: string;
 }
@@ -115,7 +116,7 @@ const identiteFields: { key: string; label: string; icon: React.ElementType; isD
   { key: 'contact',        label: 'Contact',            icon: PhoneIcon },
 ];
 
-const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCartes, onToast, role }) => {
+const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCartes, onUpdateLocal, onToast, role }) => {
   // editingRow : index de la carte en cours d'édition (-1 = aucune)
   const [editingRow,  setEditingRow]  = useState<number>(-1);
   const [editValues,  setEditValues]  = useState<Record<string, string>>({});
@@ -127,7 +128,11 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
       lieuEnrolement: carte.lieuEnrolement || '',
       siteRetrait:    carte.siteRetrait    || '',
       contact:        carte.contact        || '',
-      delivrance:     carte.delivrance     || '',
+      delivrance:     (['OUI','oui','true','1'].includes(String(carte.delivrance || '').trim()) || 
+                        (!['NON','non','Non','false','0',''].includes(String(carte.delivrance || '').trim()) && !!carte.delivrance))
+                        ? 'OUI' : '',
+      beneficiaire:   (!['OUI','oui','true','1','NON','non','Non','false','0',''].includes(String(carte.delivrance || '').trim()) && !!carte.delivrance)
+                        ? (carte.delivrance || '') : '',
       contactRetrait: carte.contactRetrait || '',
       dateDelivrance: carte.dateDelivrance || '',
     });
@@ -184,11 +189,16 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
         lieuEnrolement: editValues.lieuEnrolement,
         siteRetrait:    editValues.siteRetrait,
         contact:        editValues.contact,
-        delivrance:     editValues.delivrance,
+        delivrance:     editValues.delivrance === 'OUI'
+                      ? (editValues.beneficiaire?.trim() || 'OUI')
+                      : '',
         contactRetrait: editValues.contactRetrait,
         dateDelivrance: editValues.dateDelivrance,
       };
-      onUpdateCartes(updated);
+      onUpdateLocal(updated);   // mise à jour immédiate affichage
+      onUpdateCartes(updated);  // remonte vers le parent (Recherche.tsx)
+      // Notifier le tableau de bord qu'une carte a été modifiée
+      window.dispatchEvent(new CustomEvent('carte-modifiee', { detail: { id: carte.id } }));
       onToast("Modifications enregistrées avec succès", 'success');
       setEditingRow(-1);
       setEditValues({});
@@ -350,7 +360,13 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
                     {isEditing ? (
                       <>
                         <button
-                          onClick={() => setField('delivrance', delivered ? '' : 'OUI')}
+                          onClick={() => {
+                            if (delivered) {
+                              setField('delivrance', '');
+                            } else {
+                              setField('delivrance', 'OUI');
+                            }
+                          }}
                           className={'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer'}
                           style={delivered
                             ? { backgroundColor: GREEN, borderColor: GREEN }
@@ -359,8 +375,8 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
                           {delivered && <CheckIcon className="w-2.5 h-2.5 text-white" />}
                         </button>
                         <select
-                          value={editValues.delivrance || ''}
-                          onChange={e => setField('delivrance', e.target.value)}
+                          value={editValues.delivrance ? 'OUI' : ''}
+                          onChange={e => setField('delivrance', e.target.value ? 'OUI' : '')}
                           className="flex-1 text-xs px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none"
                           style={{ borderColor: ORANGE, color: '#7c3400' }}
                         >
@@ -386,21 +402,26 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
                     )}
                   </div>
 
-                  {/* Grille : Bénéficiaire | Contact retrait */}
+                  {/* Grille : Retiré par | Contact retrait */}
                   <div className="grid grid-cols-2">
-                    {/* Bénéficiaire */}
+                    {/* Retiré par */}
                     <div className={'p-2.5 border-r ' + (delivered ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200')}>
                       <p className={`${labelCls} ` + (delivered ? 'text-emerald-600' : 'text-gray-400')}>
                         <UserIcon className="w-3 h-3" />
-                        Bénéficiaire
+                        Retiré par
                       </p>
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editValues.delivrance && !(['OUI','oui','NON','non','true','false','0','1'].includes(editValues.delivrance))
-                            ? editValues.delivrance : ''}
-                          onChange={e => setField('delivrance', e.target.value || 'OUI')}
-                          placeholder="Nom du bénéficiaire…"
+                          value={editValues.beneficiaire || ''}
+                          onChange={e => {
+                            setField('beneficiaire', e.target.value);
+                            // Garder le statut délivré quand on tape le nom
+                            if (e.target.value.trim() && !editValues.delivrance) {
+                              setField('delivrance', 'OUI');
+                            }
+                          }}
+                          placeholder="Nom de la personne…"
                           className={inputCls}
                           style={{ borderColor: ORANGE }}
                         />
@@ -539,10 +560,15 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
 
   const prevIdsRef = useRef<string>('');
   useEffect(() => {
-    const nextIds = cartes.map((c: any) => c.id).join(',');
-    if (prevIdsRef.current !== nextIds) {
+    // Synchronise localCartes quand les données parent changent
+    // On compare les IDs ET une signature légère des valeurs clés
+    const nextSig = cartes.map((c: any) =>
+      `${c.id}:${c.delivrance}:${c.dateDelivrance}:${c.contactRetrait}`
+    ).join('|');
+    const prevSig = prevIdsRef.current;
+    if (prevSig !== nextSig) {
       setLocalCartes(cartes);
-      prevIdsRef.current = nextIds;
+      prevIdsRef.current = nextSig;
     }
   }, [cartes]);
 
@@ -726,6 +752,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           cartes={localCartes}
           isFieldEditable={isFieldEditable}
           onUpdateCartes={onUpdateCartes}
+          onUpdateLocal={setLocalCartes}
           onToast={onToast}
           role={role}
         />
@@ -788,7 +815,7 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
                                   if (e.key === 'Enter') handleDelivranceSave();
                                   else if (e.key === 'Escape') setEditingCell(null);
                                 }}
-                                placeholder="Nom du bénéficiaire…"
+                                placeholder="Nom du la personne…"
                                 className={`w-full px-2 py-1 border-2 rounded-lg bg-amber-50 focus:outline-none ${textSz}`}
                                 style={{ borderColor: ORANGE }}
                               />

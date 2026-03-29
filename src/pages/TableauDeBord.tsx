@@ -1242,6 +1242,19 @@ const TableauDeBord: React.FC = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { const t = setInterval(() => fetchData(), 300000); return () => clearInterval(t); }, [fetchData]);
 
+  // ── Rafraîchir automatiquement quand une carte est modifiée depuis Recherche ──
+  useEffect(() => {
+    const handleCarteModifiee = async () => {
+      try {
+        // Vider le cache backend pour avoir les stats fraîches
+        await StatistiquesService.refreshCache();
+      } catch { /* silencieux */ }
+      setTimeout(() => fetchData(), 300);
+    };
+    window.addEventListener('carte-modifiee', handleCarteModifiee);
+    return () => window.removeEventListener('carte-modifiee', handleCarteModifiee);
+  }, [fetchData]);
+
   const titreNiveau = useMemo(() => {
     if (niveauActif === 'global')       return 'Vue globale';
     if (niveauActif === 'coordination') return coordActive?.coordination || 'Coordination';
