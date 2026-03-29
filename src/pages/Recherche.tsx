@@ -706,6 +706,7 @@ const Recherche: React.FC = () => {
               editFields={isChefEquipe ? ['delivrance', 'contactRetrait', 'dateDelivrance'] : undefined}
               onExportCSV={canImport() ? handleExportResultatsCSV : undefined}
               onExportExcel={canImport() ? handleExportResultatsExcel : undefined}
+              onToast={showToast}
             />
 
             {/* ── Barre sauvegarde modifications ── */}

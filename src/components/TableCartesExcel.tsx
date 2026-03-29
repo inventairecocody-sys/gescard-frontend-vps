@@ -1,11 +1,12 @@
 // src/components/TableCartesExcel.tsx
 import React, { useState, useEffect, useRef } from "react";
+import { CartesService } from '../Services/api/cartes';
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PencilIcon, CheckCircleIcon, LockClosedIcon, LockOpenIcon,
   DocumentTextIcon, CalendarIcon, PhoneIcon, UserIcon,
   MapPinIcon, BuildingOfficeIcon, CheckIcon,
-  ArrowDownTrayIcon, TableCellsIcon, ListBulletIcon, Squares2X2Icon,
+  ArrowDownTrayIcon, TableCellsIcon, ListBulletIcon, Squares2X2Icon, ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 const ORANGE = '#E07B00';
@@ -19,6 +20,7 @@ interface TableCartesExcelProps {
   editFields?: string[];
   onExportCSV?: () => void;
   onExportExcel?: () => void;
+  onToast: (msg: string, type: 'success' | 'error') => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,6 +103,8 @@ interface CardViewProps {
   cartes: any[];
   isFieldEditable: (field: string) => boolean;
   onUpdateCartes: (cartes: any[]) => void;
+  onToast: (msg: string, type: 'success' | 'error') => void;
+  role: string;
 }
 
 const identiteFields: { key: string; label: string; icon: React.ElementType; isDate?: boolean }[] = [
@@ -111,7 +115,7 @@ const identiteFields: { key: string; label: string; icon: React.ElementType; isD
   { key: 'contact',        label: 'Contact',            icon: PhoneIcon },
 ];
 
-const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCartes }) => {
+const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCartes, onToast, role }) => {
   // editingRow : index de la carte en cours d'édition (-1 = aucune)
   const [editingRow,  setEditingRow]  = useState<number>(-1);
   const [editValues,  setEditValues]  = useState<Record<string, string>>({});
@@ -135,22 +139,65 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
     setEditValues({});
   };
 
-  const saveEdit = (rowIndex: number) => {
-    const updated = [...cartes];
-    updated[rowIndex] = {
-      ...updated[rowIndex],
-      lieuNaissance:  editValues.lieuNaissance,
-      dateNaissance:  editValues.dateNaissance,
-      lieuEnrolement: editValues.lieuEnrolement,
-      siteRetrait:    editValues.siteRetrait,
-      contact:        editValues.contact,
-      delivrance:     editValues.delivrance,
-      contactRetrait: editValues.contactRetrait,
-      dateDelivrance: editValues.dateDelivrance,
-    };
-    onUpdateCartes(updated);
-    setEditingRow(-1);
-    setEditValues({});
+  const [saving, setSaving] = useState(false);
+
+  const isChefEquipeCard = role === "Chef d'équipe";
+
+  // Mapping champs React → colonnes DB (identique à Recherche.tsx)
+  const toDbPayload = (vals: Record<string, string>) => {
+    const m: Record<string, any> = {};
+    // Chef d'équipe : uniquement les 3 champs de délivrance
+    if (isChefEquipeCard) {
+      m["delivrance"]         = vals.delivrance     || null;
+      m["CONTACT DE RETRAIT"] = vals.contactRetrait || null;
+      m["DATE DE DELIVRANCE"] = vals.dateDelivrance || null;
+      return m;
+    }
+    // Admin / Gestionnaire : tous les champs
+    if (vals.lieuEnrolement !== undefined) m["LIEU D'ENROLEMENT"] = vals.lieuEnrolement || null;
+    if (vals.siteRetrait    !== undefined) m["SITE DE RETRAIT"]   = vals.siteRetrait    || null;
+    if (vals.contact        !== undefined) m["contact"]            = vals.contact        || null;
+    if (vals.lieuNaissance  !== undefined) m["LIEU NAISSANCE"]     = vals.lieuNaissance  || null;
+    if (vals.dateNaissance  !== undefined) m["DATE DE NAISSANCE"]  = vals.dateNaissance  || null;
+    m["delivrance"]         = vals.delivrance     || null;
+    m["CONTACT DE RETRAIT"] = vals.contactRetrait || null;
+    m["DATE DE DELIVRANCE"] = vals.dateDelivrance || null;
+    return m;
+  };
+
+  const saveEdit = async (rowIndex: number) => {
+    const carte = cartes[rowIndex];
+    if (!carte?.id) {
+      onToast("Impossible de sauvegarder : ID manquant", 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = toDbPayload(editValues);
+      await CartesService.updateCarte(carte.id, payload);
+      // Mise à jour du state local
+      const updated = [...cartes];
+      updated[rowIndex] = {
+        ...updated[rowIndex],
+        lieuNaissance:  editValues.lieuNaissance,
+        dateNaissance:  editValues.dateNaissance,
+        lieuEnrolement: editValues.lieuEnrolement,
+        siteRetrait:    editValues.siteRetrait,
+        contact:        editValues.contact,
+        delivrance:     editValues.delivrance,
+        contactRetrait: editValues.contactRetrait,
+        dateDelivrance: editValues.dateDelivrance,
+      };
+      onUpdateCartes(updated);
+      onToast("Modifications enregistrées avec succès", 'success');
+      setEditingRow(-1);
+      setEditValues({});
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Erreur lors de l'enregistrement";
+      onToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const setField = (key: string, val: string) =>
@@ -429,11 +476,14 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
                     </button>
                     <button
                       onClick={() => saveEdit(rowIndex)}
-                      className="flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-lg transition-all text-white"
+                      disabled={saving}
+                      className="flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-lg transition-all text-white disabled:opacity-60"
                       style={{ background: ORANGE }}
                     >
-                      <CheckIcon className="w-3.5 h-3.5" />
-                      Enregistrer
+                      {saving
+                        ? <><ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />Enregistrement…</>
+                        : <><CheckIcon className="w-3.5 h-3.5" />Enregistrer</>
+                      }
                     </button>
                   </>
                 ) : (
@@ -461,7 +511,7 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
 // ─── Composant principal ───────────────────────────────────────────────────────
 const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
   cartes, role, onUpdateCartes, canEdit = true, editFields = [],
-  onExportCSV, onExportExcel,
+  onExportCSV, onExportExcel, onToast,
 }) => {
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue,   setEditValue]   = useState('');
@@ -676,6 +726,8 @@ const TableCartesExcel: React.FC<TableCartesExcelProps> = ({
           cartes={localCartes}
           isFieldEditable={isFieldEditable}
           onUpdateCartes={onUpdateCartes}
+          onToast={onToast}
+          role={role}
         />
       ) : (
         /* ── Vue Tableau ───────────────────────────────────────── */
