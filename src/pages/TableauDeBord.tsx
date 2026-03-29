@@ -1242,17 +1242,33 @@ const TableauDeBord: React.FC = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { const t = setInterval(() => fetchData(), 300000); return () => clearInterval(t); }, [fetchData]);
 
-  // ── Rafraîchir automatiquement quand une carte est modifiée depuis Recherche ──
+  // ── Rafraîchir quand une carte est modifiée (même depuis une autre page) ──
   useEffect(() => {
-    const handleCarteModifiee = async () => {
-      try {
-        // Vider le cache backend pour avoir les stats fraîches
-        await StatistiquesService.refreshCache();
-      } catch { /* silencieux */ }
-      setTimeout(() => fetchData(), 300);
+    let lastDirtyTs = localStorage.getItem('gescard_stats_dirty') || '0';
+
+    const refresh = async () => {
+      try { await StatistiquesService.refreshCache(); } catch { /* silencieux */ }
+      await fetchData();
     };
-    window.addEventListener('carte-modifiee', handleCarteModifiee);
-    return () => window.removeEventListener('carte-modifiee', handleCarteModifiee);
+
+    // Écoute l'événement direct (même page / même onglet)
+    const handleDirect = () => { refresh(); };
+    window.addEventListener('carte-modifiee', handleDirect);
+
+    // Polling localStorage toutes les 3s pour détecter les modifications
+    // faites depuis une autre page (Recherche → TableauDeBord)
+    const poll = setInterval(() => {
+      const current = localStorage.getItem('gescard_stats_dirty') || '0';
+      if (current !== lastDirtyTs) {
+        lastDirtyTs = current;
+        refresh();
+      }
+    }, 3000);
+
+    return () => {
+      window.removeEventListener('carte-modifiee', handleDirect);
+      clearInterval(poll);
+    };
   }, [fetchData]);
 
   const titreNiveau = useMemo(() => {

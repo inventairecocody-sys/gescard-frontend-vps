@@ -199,6 +199,8 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
       onUpdateCartes(updated);  // remonte vers le parent (Recherche.tsx)
       // Notifier le tableau de bord qu'une carte a été modifiée
       window.dispatchEvent(new CustomEvent('carte-modifiee', { detail: { id: carte.id } }));
+      // Stocker un flag dans localStorage pour que TableauDeBord se rafraîchisse même si monté plus tard
+      localStorage.setItem('gescard_stats_dirty', Date.now().toString());
       onToast("Modifications enregistrées avec succès", 'success');
       setEditingRow(-1);
       setEditValues({});
