@@ -148,14 +148,25 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
 
   const isChefEquipeCard = role === "Chef d'équipe";
 
-  // Mapping champs React → colonnes DB (identique à Recherche.tsx)
+  // Mapping champs React → colonnes DB
   const toDbPayload = (vals: Record<string, string>) => {
     const m: Record<string, any> = {};
+    const isDelivree = !!vals.delivrance; // 'OUI' = true, '' = false
+
+    // Reconstruction du champ delivrance : nom du bénéficiaire ou null
+    const delivranceVal = isDelivree
+      ? (vals.beneficiaire?.trim() || 'OUI')
+      : null;
+
+    // Si non délivré : vider aussi date et contact retrait
+    const dateDelivrance   = isDelivree ? (vals.dateDelivrance   || null) : null;
+    const contactRetrait   = isDelivree ? (vals.contactRetrait   || null) : null;
+
     // Chef d'équipe : uniquement les 3 champs de délivrance
     if (isChefEquipeCard) {
-      m["delivrance"]         = vals.delivrance     || null;
-      m["CONTACT DE RETRAIT"] = vals.contactRetrait || null;
-      m["DATE DE DELIVRANCE"] = vals.dateDelivrance || null;
+      m["delivrance"]         = delivranceVal;
+      m["CONTACT DE RETRAIT"] = contactRetrait;
+      m["DATE DE DELIVRANCE"] = dateDelivrance;
       return m;
     }
     // Admin / Gestionnaire : tous les champs
@@ -164,9 +175,9 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
     if (vals.contact        !== undefined) m["contact"]            = vals.contact        || null;
     if (vals.lieuNaissance  !== undefined) m["LIEU NAISSANCE"]     = vals.lieuNaissance  || null;
     if (vals.dateNaissance  !== undefined) m["DATE DE NAISSANCE"]  = vals.dateNaissance  || null;
-    m["delivrance"]         = vals.delivrance     || null;
-    m["CONTACT DE RETRAIT"] = vals.contactRetrait || null;
-    m["DATE DE DELIVRANCE"] = vals.dateDelivrance || null;
+    m["delivrance"]         = delivranceVal;
+    m["CONTACT DE RETRAIT"] = contactRetrait;
+    m["DATE DE DELIVRANCE"] = dateDelivrance;
     return m;
   };
 
@@ -192,8 +203,9 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
         delivrance:     editValues.delivrance === 'OUI'
                       ? (editValues.beneficiaire?.trim() || 'OUI')
                       : '',
-        contactRetrait: editValues.contactRetrait,
-        dateDelivrance: editValues.dateDelivrance,
+        // Si non délivré : vider aussi les champs liés
+        contactRetrait: editValues.delivrance === 'OUI' ? editValues.contactRetrait : '',
+        dateDelivrance: editValues.delivrance === 'OUI' ? editValues.dateDelivrance : '',
       };
       onUpdateLocal(updated);   // mise à jour immédiate affichage
       onUpdateCartes(updated);  // remonte vers le parent (Recherche.tsx)
