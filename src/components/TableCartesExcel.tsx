@@ -209,9 +209,13 @@ const CardView: React.FC<CardViewProps> = ({ cartes, isFieldEditable, onUpdateCa
       };
       onUpdateLocal(updated);   // mise à jour immédiate affichage
       onUpdateCartes(updated);  // remonte vers le parent (Recherche.tsx)
-      // Notifier le tableau de bord qu'une carte a été modifiée
-      window.dispatchEvent(new CustomEvent('carte-modifiee', { detail: { id: carte.id } }));
-      // Stocker un flag dans localStorage pour que TableauDeBord se rafraîchisse même si monté plus tard
+      // Calculer le delta de délivrance pour mise à jour immédiate du dashboard
+      const etaitDelivre = isDelivre(carte.delivrance);
+      const estDelivre   = isDelivre(editValues.delivrance === 'OUI'
+        ? (editValues.beneficiaire?.trim() || 'OUI') : '');
+      const delta = !etaitDelivre && estDelivre ? 1 : etaitDelivre && !estDelivre ? -1 : 0;
+      // Notifier le tableau de bord avec le delta pour mise à jour immédiate
+      window.dispatchEvent(new CustomEvent('carte-modifiee', { detail: { delta } }));
       localStorage.setItem('gescard_stats_dirty', Date.now().toString());
       onToast("Modifications enregistrées avec succès", 'success');
       setEditingRow(-1);

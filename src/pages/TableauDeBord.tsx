@@ -1251,11 +1251,46 @@ const TableauDeBord: React.FC = () => {
   useEffect(() => {
     let lastDirtyTs = localStorage.getItem('gescard_stats_dirty') || '0';
 
-    // force=true pour bypasser le cache backend
-    const refresh = () => { fetchData(true); };
+    // Applique le delta immédiatement sur le state React (sans attendre le backend)
+    const applyDeltaLocal = (delta: number) => {
+      if (delta === 0) return;
+      setGlobales(prev => {
+        if (!prev) return prev;
+        const newRetires  = Math.max(0, prev.retires  + delta);
+        const newRestants = Math.max(0, prev.restants - delta);
+        return {
+          ...prev,
+          retires:     newRetires,
+          restants:    newRestants,
+          tauxRetrait: prev.total > 0 ? Math.round((newRetires / prev.total) * 100) : 0,
+        };
+      });
+      setAllSites(prev => prev.map(s => ({
+        ...s,
+        retires:     Math.max(0, s.retires  + delta),
+        restants:    Math.max(0, s.restants - delta),
+        tauxRetrait: s.total > 0
+          ? pct(Math.max(0, s.retires + delta), s.total) : 0,
+      })));
+    };
 
     // Écoute l'événement direct (même onglet, même page)
-    window.addEventListener('carte-modifiee', refresh);
+    const handleDirect = async (e: Event) => {
+      const delta = (e as CustomEvent).detail?.delta ?? 0;
+
+      // 1. Mise à jour immédiate locale (sans attendre le backend)
+      applyDeltaLocal(delta);
+
+      // 2. Vider le cache backend
+      try { await StatistiquesService.refreshCache(); } catch { /* silencieux */ }
+
+      // 3. Attendre que le backend ait bien recalculé (court délai)
+      await new Promise(r => setTimeout(r, 500));
+
+      // 4. Recharger les vraies données depuis la DB
+      fetchData(true);
+    };
+    window.addEventListener('carte-modifiee', handleDirect);
 
     // Polling localStorage toutes les 2s — détecte les modifs depuis Recherche
     const poll = setInterval(() => {
@@ -1267,7 +1302,7 @@ const TableauDeBord: React.FC = () => {
     }, 2000);
 
     return () => {
-      window.removeEventListener('carte-modifiee', refresh);
+      window.removeEventListener('carte-modifiee', handleDirect);
       clearInterval(poll);
     };
   }, [fetchData]);

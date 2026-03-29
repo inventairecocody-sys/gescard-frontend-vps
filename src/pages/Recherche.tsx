@@ -208,9 +208,19 @@ const Recherche: React.FC = () => {
         await CartesService.updateCarte(carte.id, payload);
       }
       setHasModifications(false);
+      // Calculer le delta de délivrances pour mise à jour immédiate du dashboard
+      let deltaRetires = 0;
+      modifiees.forEach(carte => {
+        const orig = origMap.get(carte.id);
+        if (!orig) return;
+        const etaitDelivre = orig.delivrance && !['NON','non','Non','false','0',''].includes(String(orig.delivrance).trim());
+        const estDelivre   = carte.delivrance && !['NON','non','Non','false','0',''].includes(String(carte.delivrance).trim());
+        if (!etaitDelivre && estDelivre)  deltaRetires += 1;  // nouvellement délivré
+        if (etaitDelivre  && !estDelivre) deltaRetires -= 1;  // retrait annulé
+      });
       cartesOriginalesRef.current = resultats.map(c => ({ ...c }));
-      // Notifier le tableau de bord — même mécanisme que la vue fiches
-      window.dispatchEvent(new CustomEvent('carte-modifiee'));
+      // Notifier le tableau de bord avec le delta pour mise à jour immédiate
+      window.dispatchEvent(new CustomEvent('carte-modifiee', { detail: { delta: deltaRetires } }));
       localStorage.setItem('gescard_stats_dirty', Date.now().toString());
       showToast(`${modifiees.length} modification(s) enregistrée(s) avec succès`);
     } catch {
