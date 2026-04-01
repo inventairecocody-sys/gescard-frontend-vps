@@ -137,8 +137,16 @@ const Profil: React.FC = () => {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+    if (newPassword.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      setError('Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre');
+      return;
+    }
+    if (!currentPassword) {
+      setError('Le mot de passe actuel est requis');
       return;
     }
 
@@ -147,10 +155,12 @@ const Profil: React.FC = () => {
     setSuccess('');
 
     try {
-      const userId = (user as any)?.id;
-      if (!userId) throw new Error('ID utilisateur non trouvé');
-
-      await UtilisateursService.updateUtilisateur(userId, { motDePasse: newPassword });
+      const { apiClient } = await import('../Services/api/client');
+      await apiClient.post('/profil/change-password', {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
 
       setSuccess('Mot de passe modifié avec succès !');
       setCurrentPassword('');
@@ -158,7 +168,11 @@ const Profil: React.FC = () => {
       setConfirmPassword('');
     } catch (err: any) {
       console.error('Erreur handleChangePassword:', err);
-      setError(err.response?.data?.error || 'Erreur lors du changement de mot de passe');
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Erreur lors du changement de mot de passe'
+      );
     } finally {
       setChangingPassword(false);
     }
@@ -388,7 +402,7 @@ const Profil: React.FC = () => {
                     placeholder="Minimum 6 caractères"
                   />
                   <p className="text-gray-500 mt-1 text-xs">
-                    Le mot de passe doit contenir au moins 6 caractères
+                    Minimum 8 caractères, avec une majuscule, une minuscule et un chiffre
                   </p>
                 </div>
 

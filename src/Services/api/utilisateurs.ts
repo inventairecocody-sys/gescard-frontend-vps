@@ -21,14 +21,15 @@ export interface CreateUtilisateurData {
 
 // ✅ nomComplet ajouté
 export interface UpdateUtilisateurData {
-  nomComplet?: string;
-  role?: string;
-  coordination?: string;
-  agence?: string;
-  email?: string;
-  telephone?: string;
-  motDePasse?: string;
+  NomComplet?: string;
+  Role?: string;
+  Coordination?: string;
+  Agence?: string;
+  Email?: string;
+  Telephone?: string;
+  MotDePasse?: string;
   actif?: boolean;
+  SiteIds?: string[];
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
