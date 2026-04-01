@@ -117,6 +117,7 @@ const MisesAJour: React.FC = () => {
   const [selectedSite,    setSelectedSite]    = useState('');
   const [validite,        setValidite]        = useState(7);
   const [includeCards,    setIncludeCards]    = useState(false);
+  const [filterBySite,    setFilterBySite]    = useState(false); // ✅ nouvelle option
   const [generatingFile,  setGeneratingFile]  = useState(false);
   const [loadingSites,    setLoadingSites]    = useState(true);
   const [initError,       setInitError]       = useState('');
@@ -256,7 +257,12 @@ const MisesAJour: React.FC = () => {
     try {
       const response = await axios.post(
         `${API_BASE}/api/init-file/generate`,
-        { site_id: selectedSite, validite_jours: validite, include_cards: includeCards },
+        {
+          site_id:        selectedSite,
+          validite_jours: validite,
+          include_cards:  includeCards,
+          filter_by_site: includeCards ? filterBySite : false, // ✅ envoi de l'option
+        },
         { headers, responseType: 'blob' }
       );
 
@@ -271,7 +277,12 @@ const MisesAJour: React.FC = () => {
       window.URL.revokeObjectURL(url);
 
       const siteLabel = sites.find(s => s.id === selectedSite)?.nom || selectedSite;
-      setInitSuccess(`Fichier généré pour "${siteLabel}" · Validité : ${validite} jour(s). Envoyez-le au responsable du site.`);
+      const cartesMsg = includeCards
+        ? filterBySite
+          ? `cartes du site uniquement`
+          : `toutes les cartes`
+        : `sans cartes`;
+      setInitSuccess(`Fichier généré pour "${siteLabel}" · Validité : ${validite} jour(s) · ${cartesMsg}. Envoyez-le au responsable du site.`);
     } catch (e: any) {
       // Si le blob contient une erreur JSON, on la lit
       try {
@@ -468,11 +479,11 @@ const MisesAJour: React.FC = () => {
                       <CheckCircleIcon className="w-5 h-5 text-green-600" />
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-green-700 text-sm">{selectedFile.name}</div>
-                      <div className="text-xs text-green-500">{formatSize(selectedFile.size)}</div>
+                      <p className="text-sm font-semibold text-gray-700 truncate max-w-[160px]">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-400">{formatSize(selectedFile.size)}</p>
                     </div>
-                    <button type="button" onClick={e => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                      className="ml-auto p-1 text-green-400 hover:text-green-600">
+                    <button onClick={e => { e.stopPropagation(); setSelectedFile(null); }}
+                      className="ml-2 p-1 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
                       <XMarkIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -735,7 +746,10 @@ const MisesAJour: React.FC = () => {
 
                 {/* Option inclure cartes */}
                 <div
-                  onClick={() => setIncludeCards(v => !v)}
+                  onClick={() => {
+                    setIncludeCards(v => !v);
+                    if (includeCards) setFilterBySite(false); // reset filter si on décoche
+                  }}
                   className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                     includeCards ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                   }`}
@@ -755,6 +769,45 @@ const MisesAJour: React.FC = () => {
                   </div>
                   <ExclamationTriangleIcon className={`w-4 h-4 flex-shrink-0 ${includeCards ? 'text-orange-400' : 'text-gray-300'}`} />
                 </div>
+
+                {/* ✅ Option filtre par site — visible seulement si "Inclure les cartes" est coché */}
+                <AnimatePresence>
+                  {includeCards && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div
+                        onClick={() => setFilterBySite(v => !v)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          filterBySite ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                          filterBySite ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'
+                        }`}>
+                          {filterBySite && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-700">Cartes du site uniquement</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {filterBySite
+                              ? 'Seulement les cartes de ce site — fichier plus léger'
+                              : 'Par défaut : toutes les cartes sont incluses'}
+                          </p>
+                        </div>
+                        <BuildingOfficeIcon className={`w-4 h-4 flex-shrink-0 ${filterBySite ? 'text-blue-400' : 'text-gray-300'}`} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
               </div>
 
               {/* Colonne droite : récapitulatif */}
@@ -772,10 +825,13 @@ const MisesAJour: React.FC = () => {
                       ['Coordination',   sites.find(s => s.id === selectedSite)?.coordination_nom || '—'],
                       ['Validité',       `${validite} jour${validite > 1 ? 's' : ''}`],
                       ['Cartes incluses', includeCards ? 'Oui' : 'Non'],
+                      ...(includeCards ? [['Périmètre cartes', filterBySite ? 'Site uniquement' : 'Toutes les cartes']] : []),
                     ].map(([label, value]) => (
                       <div key={label} className="flex justify-between text-sm">
                         <span className="text-gray-500">{label}</span>
-                        <span className="font-semibold text-gray-800">{value}</span>
+                        <span className={`font-semibold ${
+                          label === 'Périmètre cartes' && filterBySite ? 'text-blue-600' : 'text-gray-800'
+                        }`}>{value}</span>
                       </div>
                     ))}
                   </div>
