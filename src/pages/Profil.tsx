@@ -399,7 +399,7 @@ const Profil: React.FC = () => {
                     onChange={(e) => setNewPassword(e.target.value)}
                     className={`w-full bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-400 transition-all ${isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-3'}`}
                     required
-                    placeholder="Minimum 6 caractères"
+                    placeholder="Minimum 8 caractères"
                   />
                   <p className="text-gray-500 mt-1 text-xs">
                     Minimum 8 caractères, avec une majuscule, une minuscule et un chiffre
