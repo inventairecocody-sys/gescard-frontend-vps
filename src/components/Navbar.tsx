@@ -81,8 +81,7 @@ const Navbar: React.FC<NavbarProps> = ({ role: propRole }) => {
   const adminSubItems = [
     ...(canView('comptes')      ? [{ path: '/administration/comptes',    label: 'Comptes',      icon: UsersIcon }] : []),
     ...(canView('mises-a-jour') ? [{ path: '/administration/mises-a-jour', label: 'Mises à jour', icon: ArrowDownTrayIcon }] : []),
-    // ✅ AJOUT : Journal & Backups (toujours visible pour admin)
-    { path: '/administration/journal', label: 'Journal & Backups', icon: DocumentTextIcon },
+    ...(canView('journal')      ? [{ path: '/administration/journal',    label: 'Journal & Backups', icon: DocumentTextIcon }] : []),
   ];
 
   const showAdminMenu = adminSubItems.length > 0;
