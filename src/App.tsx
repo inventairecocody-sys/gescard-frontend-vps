@@ -88,7 +88,9 @@ const AppContent: React.FC = () => {
         } />
 
         <Route path="/profil" element={
-          <ProtectedRoute><Profil /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={['Administrateur', 'Gestionnaire', "Chef d'équipe"]}>
+            <Profil />
+          </ProtectedRoute>
         } />
 
         <Route path="/recherche" element={

@@ -37,7 +37,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   Opérateur: [
     { page: 'accueil',         actions: ['view'] },
     { page: 'recherche',       actions: ['view'] },
-    { page: 'profil',          actions: ['view', 'edit'] },
   ],
 };
 
